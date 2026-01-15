@@ -400,31 +400,7 @@
   }
 }
 
-  
-    /* === Sortable blocks (Пульт) === */
-    .sortableContainer .sortable-block { position: relative; }
-    .dragHandle{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px; margin-right:10px;
-      border-radius:10px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
-      cursor: grab;
-      user-select:none;
-      touch-action:none;
-      flex: 0 0 auto;
-    }
-    .dragHandle:active{ cursor: grabbing; }
-    .sortable-block.dragging{ opacity:.55; }
-    .sortable-placeholder{
-      border: 1px dashed rgba(255,255,255,.25);
-      border-radius: 16px;
-      background: rgba(255,255,255,.03);
-      height: 56px;
-      margin: 12px 0;
-    }
-    
-</style>
+  </style>
 </head>
 
 <body>
@@ -441,10 +417,9 @@
         <div id="quote-day-author" class="muted" style="margin-top:8px"></div>
       </div>
 <div class="grid cols2">
-        <div id="pult-sortable" class="sortableContainer">
-        <div class="card opCard sortable-block" data-block-id="new-op">
+        <div class="card opCard">
           <div class="cardTitle">
-            <span class="dragHandle" aria-label="Перетащить блок" title="Перетащить">☰</span><h2>Новая операция</h2>
+            <h2>Новая операция</h2>
             <span class="pill" id="pill-month"></span>
           </div>
 
@@ -506,8 +481,8 @@
         </div>
 
         <div class="card">
-          <div class="cardTitle sortable-block" data-block-id="limits">
-            <span class="dragHandle" aria-label="Перетащить блок" title="Перетащить">☰</span><h2>Лимиты (месяц)</h2>
+          <div class="cardTitle">
+            <h2>Лимиты (месяц)</h2>
             <span class="pill" id="pill-limits"></span>
           </div>
           <div id="limits-view" class="list"></div>
@@ -518,8 +493,8 @@
       </div>
 
       <div class="card">
-        <div class="cardTitle sortable-block" data-block-id="operations">
-          <span class="dragHandle" aria-label="Перетащить блок" title="Перетащить">☰</span><h2>Операции</h2>
+        <div class="cardTitle">
+          <h2>Операции</h2>
           <div class="row" style="flex:0 0 auto; gap:8px">
             <button class="btn inline small ghost" id="btn-refresh">Обновить</button>
           </div>
@@ -528,13 +503,12 @@
       </div>
 
       <div class="card">
-        <div class="cardTitle sortable-block" data-block-id="savings">
-          <span class="dragHandle" aria-label="Перетащить блок" title="Перетащить">☰</span><h2>План накоплений на ключевые события</h2>
+        <div class="cardTitle">
+          <h2>План накоплений на ключевые события</h2>
           <span class="pill">по целям</span>
         </div>
         <div id="saving-plan" class="list"></div>
       </div>
-          </div>
     </section>
 
     <!-- DASHBOARD -->
@@ -1024,10 +998,9 @@ $("#modalBack").addEventListener("click", (e)=>{ if(e.target.id==="modalBack") c
 
 async function apiGet(params){
   const url = new URL(API_URL);
-  Object.entries(params||{}).forEach(([k,v])=> url.searchParams.set(k, v));
+  Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
   if (API_KEY) url.searchParams.set("key", API_KEY);
-  url.searchParams.set("_ts", String(Date.now()));
-  const r = await fetch(url.toString(), { method:"GET", cache:"no-store" });
+  const r = await fetch(url.toString(), { method:"GET" });
   const j = await r.json().catch(()=>({ok:false, error:"Invalid JSON"}));
   if (!r.ok || j.ok===false) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
@@ -1619,7 +1592,7 @@ function renderLimitsView(){
     spentByCat[k] = (spentByCat[k]||0) + Number(o.amount||0);
   }
 
-  const monthLimits = state.limits.filter(l => normMonth(l.month)===String(month));
+  const monthLimits = state.limits.filter(l => String(l.month)===String(month));
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
 
@@ -2726,7 +2699,7 @@ function renderSettings(){
 
   // limits settings list for current month
   const month = yyyymm(new Date());
-  const lms = state.limits.filter(l=>normMonth(l.month)===String(month));
+  const lms = state.limits.filter(l=>String(l.month)===String(month));
   const byCat = {};
   lms.forEach(l=>byCat[String(l.categoryId)] = l);
 
@@ -3246,7 +3219,7 @@ function escAttr(s){ return esc(s).replaceAll("\n"," "); }
  *  INIT
  * ============================
  */
-(async function init(){
+(function init(){
   // set default pills
   $("#pill-month").textContent = new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
 
@@ -3270,121 +3243,7 @@ if (!API_URL || API_URL.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")){
     "warn",
     4500
   );
-}
-
-// === Cloud-synced order for blocks in "Пульт"
-const PULT_DEFAULT_ORDER = ["new-op","limits","operations","savings"];
-
-function getCurrentPultOrder(){
-  const cont = document.getElementById("pult-sortable");
-  if(!cont) return [...PULT_DEFAULT_ORDER];
-  return Array.from(cont.querySelectorAll(".sortable-block"))
-    .map(el => el.getAttribute("data-block-id"))
-    .filter(Boolean);
-}
-
-function applyPultOrder(order){
-  const cont = document.getElementById("pult-sortable");
-  if(!cont || !Array.isArray(order) || !order.length) return;
-
-  const map = new Map();
-  Array.from(cont.querySelectorAll(".sortable-block")).forEach(el=>{
-    map.set(el.getAttribute("data-block-id"), el);
-  });
-
-  order.forEach(id=>{
-    const el = map.get(id);
-    if(el) cont.appendChild(el);
-    map.delete(id);
-  });
-  map.forEach(el=>cont.appendChild(el));
-}
-
-async function loadPultOrderFromCloud(){
-  try{
-    const r = await apiGet({ action:"getUiSettings" });
-    const order = r?.uiSettings?.dashboard_order;
-    if(Array.isArray(order) && order.length) return order;
-  }catch(e){}
-  return null;
-}
-
-async function savePultOrderToCloud(order){
-  try{
-    await apiPost("setDashboardOrder", { order });
-  }catch(e){}
-}
-
-function initPultSortable(){
-  const cont = document.getElementById("pult-sortable");
-  if(!cont) return;
-
-  let draggingEl = null;
-  const placeholder = document.createElement("div");
-  placeholder.className = "sortable-placeholder";
-
-  function onDragStart(e){
-    const handle = e.target.closest(".dragHandle");
-    if(!handle) { e.preventDefault(); return; }
-    const card = handle.closest(".sortable-block");
-    if(!card) return;
-
-    draggingEl = card;
-    card.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", card.getAttribute("data-block-id") || "");
-  }
-
-  function onDragEnd(){
-    if(draggingEl){
-      draggingEl.classList.remove("dragging");
-      draggingEl = null;
-      if(placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
-      const order = getCurrentPultOrder();
-      savePultOrderToCloud(order);
-    }
-  }
-
-  function getDragAfterElement(container, y){
-    const els = [...container.querySelectorAll(".sortable-block:not(.dragging)")];
-    return els.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) return { offset, element: child };
-      return closest;
-    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
-  }
-
-  function onDragOver(e){
-    if(!draggingEl) return;
-    e.preventDefault();
-    const afterEl = getDragAfterElement(cont, e.clientY);
-    if(afterEl == null){
-      cont.appendChild(placeholder);
-    }else{
-      cont.insertBefore(placeholder, afterEl);
-    }
-  }
-
-  function onDrop(e){
-    if(!draggingEl) return;
-    e.preventDefault();
-    if(placeholder.parentNode){
-      cont.insertBefore(draggingEl, placeholder);
-    }
-  }
-
-  cont.querySelectorAll(".sortable-block").forEach(card=>{
-    card.setAttribute("draggable","true");
-    card.addEventListener("dragstart", onDragStart);
-    card.addEventListener("dragend", onDragEnd);
-  });
-
-  cont.addEventListener("dragover", onDragOver);
-  cont.addEventListener("drop", onDrop);
-}
-
- else {
+} else {
   syncAll("init");
 }
 
