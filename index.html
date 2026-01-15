@@ -1696,6 +1696,15 @@ function renderSavingPlan(){
     return;
   }
 
+    const goalsSorted = [...state.goals].sort((a,b)=>{
+    const ta = a.deadline ? Date.parse(a.deadline) : Infinity;
+    const tb = b.deadline ? Date.parse(b.deadline) : Infinity;
+    if (ta !== tb) return ta - tb;
+    return String(a.name||"").localeCompare(String(b.name||""), "ru");
+  });
+
+  const html = goalsSorted.map(g=>{
+
   const html = state.goals.map(g=>{
     const target = Number(g.target||0);
     const saved = Number(g.saved||0);
@@ -2386,7 +2395,15 @@ function renderGoals(){
   if (!state.goals.length){
     $("#goals-list").innerHTML = `<div class="muted">Целей пока нет. Нажми «+ Цель».</div>`;
   } else {
-    $("#goals-list").innerHTML = state.goals.map(g=>{
+        const goalsSorted = [...state.goals].sort((a,b)=>{
+      const ta = a.deadline ? Date.parse(a.deadline) : Infinity;
+      const tb = b.deadline ? Date.parse(b.deadline) : Infinity;
+      if (ta !== tb) return ta - tb;
+      return String(a.name||"").localeCompare(String(b.name||""), "ru");
+    });
+
+    $("#goals-list").innerHTML = goalsSorted.map(g=>{
+
       const target = Number(g.target||0);
       const saved = Number(g.saved||0);
       const pct = target>0 ? clamp((saved/target)*100, 0, 100) : 0;
