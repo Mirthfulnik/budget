@@ -1705,7 +1705,6 @@ function renderSavingPlan(){
 
   const html = goalsSorted.map(g=>{
 
-  const html = state.goals.map(g=>{
     const target = Number(g.target||0);
     const saved = Number(g.saved||0);
     const left = Math.max(0, target - saved);
