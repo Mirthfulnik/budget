@@ -1503,6 +1503,25 @@ function normalizeState(){
  *  RENDER: COMMON
  * ============================
  */
+
+const LAST_OP_PREFS_KEY = "finance2026_last_op_prefs_v1";
+
+function getLastOpPrefs_(){
+  try { return JSON.parse(localStorage.getItem(LAST_OP_PREFS_KEY) || "null"); }
+  catch(e){ return null; }
+}
+
+function saveLastOpPrefs_(){
+  const prefs = {
+    type: $("#op-type")?.value || "",
+    categoryId: $("#op-category")?.value || "",
+    subcategoryId: $("#op-subcategory")?.value || "",
+    accountId: $("#op-account")?.value || "",
+    currency: $("#op-currency")?.value || ""
+  };
+  localStorage.setItem(LAST_OP_PREFS_KEY, JSON.stringify(prefs));
+}
+
 function renderAll(){
   renderSelects();
   renderPult();
@@ -1522,21 +1541,33 @@ function updateOpCurrencyBadge(){
 }
 
 function renderSelects(){
+    const prefs = getLastOpPrefs_();
+  if (prefs?.type) $("#op-type").value = prefs.type;
+
   const type = $("#op-type").value;
 
   // categories by type
   const cats = state.categories.filter(c => (c.type===type) || (type==="transfer" && c.type==="transfer"));
   const catSel = $("#op-category");
   catSel.innerHTML = cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("") || `<option value="">— нет категорий —</option>`;
+  if (prefs?.categoryId) catSel.value = prefs.categoryId;
 
   // accounts
   const accSel = $("#op-account");
   accSel.innerHTML = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.currency||'RUB')}</option>`).join("");
+    if (prefs?.accountId) accSel.value = prefs.accountId;
   if (!accSel.value) accSel.value = state.accounts[0]?.id || "";
   updateOpCurrencyBadge();
 
   // subcategories for selected category
   renderSubcategorySelect();
+    if (prefs?.subcategoryId) $("#op-subcategory").value = prefs.subcategoryId;
+
+  if (prefs?.currency && $("#op-currency")) {
+    $("#op-currency").value = prefs.currency;
+    $("#op-currency")._userTouched = true; // чтобы не перетиралось валютой счета
+  }
+
 }
 
 function renderSubcategorySelect(){
@@ -1568,11 +1599,13 @@ function renderSubcategorySelect(){
 $("#op-type").addEventListener("change", ()=>{
   renderSelects();
   renderSubcategorySelect();
+  saveLastOpPrefs_();
 });
 $("#op-category").addEventListener("change", renderSubcategorySelect);
-
-$("#op-account").addEventListener("change", ()=>{ const s = $("#op-currency"); if (s) s._userTouched = false; updateOpCurrencyBadge(); });
-$("#op-currency").addEventListener("change", (e)=>{ e.target._userTouched = true; });
+renderSubcategorySelect();
+saveLastOpPrefs_();
+$("#op-account").addEventListener("change", ()=>{ const s = $("#op-currency"); if (s) s._userTouched = false; updateOpCurrencyBadge(); saveLastOpPrefs_();});
+$("#op-currency").addEventListener("change", (e)=>{ e.target._userTouched = true; saveLastOpPrefs_(); });
 
 
 /**
@@ -1772,6 +1805,7 @@ $("#btn-add-op").addEventListener("click", async ()=>{
     await apiPost("addOperation", { type, amount, categoryId, subcategoryId, accountId, currency, date, comment });
     $("#op-amount").value = "";
     $("#op-comment").value = "";
+    saveLastOpPrefs_();
     await syncAll("afterAdd");
   }catch(err){
     toast("Ошибка", String(err.message || err), "error", 0);
