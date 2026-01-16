@@ -1633,7 +1633,13 @@ function renderLimitsView(){
     spentByCat[k] = (spentByCat[k]||0) + Number(o.amount||0);
   }
 
-  const monthLimits = state.limits.filter(l => String(l.month)===String(month));
+  const monthLimits = state.limits.filter(l => {
+  if (String(l.month) !== String(month)) return false;
+  if (Number(l.amount) <= 0) return false;
+
+  const spent = spentByCat[String(l.categoryId)] || 0;
+  return spent > 0;
+});
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
 
