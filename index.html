@@ -1642,9 +1642,16 @@ function renderLimitsView(){
 });
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
-
-  // show only expense categories
-  const expCats = state.categories.filter(c=>c.type==="expense");
+  // categories that actually have a limit set (>0) this month
+const catsWithLimit = new Set(
+  monthLimits
+    .filter(l => l.amount != null && Number(l.amount) > 0)
+    .map(l => String(l.categoryId))
+);
+  
+  const expCats = state.categories
+  .filter(c => c.type === "expense")
+  .filter(c => catsWithLimit.has(String(c.id)));
 
   const rows = expCats.map(cat=>{
     const lim = limitsMap[String(cat.id)];
