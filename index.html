@@ -2244,23 +2244,25 @@ function drawSubcategoryChart(canvas, rows){
   ctx.font = "12px Inter, system-ui, sans-serif";
   for (let i=0;i<rows.length;i++){
     const y = topPad + i*(barH+gap);
-    const frac = rows[i].val / maxVal;
-    const bw = Math.max(2, frac * (chartW*0.55));
+const frac = rows[i].val / maxVal;
 
-    // label
-    ctx.textAlign = "left";
-    ctx.fillStyle = "rgba(255,255,255,.78)";
-    ctx.fillText(rows[i].name, pad, y + barH - 2);
+// Разметка строки: [label | bar | value]
+const labelW = Math.min(220, Math.max(120, Math.round(chartW * 0.38)));
+const valueW = 90;     // место справа под "2 853 ₽"
+const barGap  = 12;    // отступ перед значением
 
-    // bar
-    const bx = pad + chartW*0.42;
-    ctx.fillStyle = "rgba(87,166,255,.85)";
-    ctx.fillRect(bx, y, bw, barH);
+const bx = pad + labelW;
+const barMaxW = Math.max(40, (w - pad) - valueW - barGap - bx);
+const bw = Math.max(2, frac * barMaxW);
+
+// bar
+ctx.fillStyle = "rgba(87,166,255,.85)";
+ctx.fillRect(bx, y, bw, barH);
 
     // value
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,255,255,.70)";
-    ctx.fillText(ruMoney(rows[i].val), w - pad, y + barH - 2);
+    ctx.fillText(ruMoney(rows[i].val), w - pad - 4, y + barH - 2);
   }
 }
 
