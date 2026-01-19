@@ -4,7 +4,412 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Finance 2026</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./styles.css" />
+
+  <style>
+    :root{
+      --bg:#0f1115; --card:#171a22; --card2:#1c2030;
+      --text:#e9eef6; --muted:#9aa3b2; --line:#2a3142;
+      --accent:#57a6ff; --danger:#ff5b6e; --ok:#41d38d; --warn:#ffcc66;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --navH: 70px;
+      --safeB: env(safe-area-inset-bottom, 0px);
+      --safeT: env(safe-area-inset-top, 0px);
+    }
+    /* === Space under each page so fixed bottom-nav never overlaps content === */
+    :root{
+      --navGap: 10px;     /* bottom: 10px у .bottomNav */
+      --pageBottomPad: 18px; /* дополнительный комфорт */
+    }
+
+    .page::after{
+      content:"";
+      display:block;
+      height: calc(var(--navH) + var(--navGap) + var(--safeB) + var(--pageBottomPad));
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding-bottom: calc(var(--navH) + var(--safeB) + 34px);
+      overflow-x: hidden; /* iOS: avoid horizontal overflow from form controls */
+      -webkit-tap-highlight-color: transparent;
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px; margin:0 auto; padding:14px; padding-top: calc(12px + var(--safeT)); overflow-x:hidden;}
+    .grid{
+      display:grid; gap:12px;
+      grid-template-columns: 1fr;
+    }
+    @media (max-width: 560px){
+  .grid{ gap:14px; }
+  .card{ padding: 14px; }
+}
+    @media (min-width: 980px){
+      .grid.cols2{grid-template-columns: 1fr;}
+      .grid.cols3{grid-template-columns: 1fr 1fr 1fr;}
+      .grid.cols2wide{grid-template-columns: 1.6fr .4fr;}
+    }
+    /* === Mobile layout fixes === */
+@media (max-width: 560px){
+  /* Don't try to keep multiple fields in one row on narrow screens */
+  .row{ gap:12px; flex-direction: column; }
+  .row > *{ flex: 1 1 100%; min-width: 0; }
+
+  /* iOS: prevent input zoom + accidental horizontal overflow */
+  input, select, textarea{ font-size:16px; }
+
+  /* Date + comment: stack and keep inputs inside viewport */
+  .op-date-row{ flex-direction: column; gap:12px; }
+  .op-date-row .field{ width: 100%; min-width: 0; }
+  .op-date-row input{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+  input[type="date"]{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+}
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardTitle{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      margin:0 0 10px 0;
+    }
+    .cardTitle h2{
+      margin:0; font-size:16px; letter-spacing:.2px;
+    }
+    .muted{color:var(--muted); font-size:13px}
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > *{flex:1 1 160px; min-width:0}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color: var(--muted); font-size:12px;
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      width:100%;
+      padding:11px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(87,166,255,.18);
+      color: var(--text);
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.secondary{background: rgba(255,255,255,.06); font-weight:650}
+    .btn.danger{background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35)}
+    .btn.inline{width:auto; padding:9px 10px}
+    .btn.small{padding:8px 10px; font-size:13px}
+    .btn.ghost{
+      background: transparent;
+      border-color: rgba(255,255,255,.08);
+    }
+    input, select, textarea{
+      width:100%;
+      padding:11px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      outline:none;
+      font-size:15px;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+
+    /* iOS Safari: date inputs can overflow if appearance isn't reset */
+    input[type="date"]{
+      -webkit-appearance: none;
+      appearance: none;
+      display:block;
+    }
+    textarea{min-height: 88px; resize: vertical;}
+    label{display:block; font-size:12px; color:var(--muted); margin: 0 0 6px 2px}
+    .field{margin-bottom:10px; min-width:0}
+    .kpi{
+      display:flex; flex-direction:column; gap:6px;
+      padding:12px; border-radius: 14px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .kpi .val{font-size:18px; font-weight:800}
+    .kpi .sub{font-size:12px; color:var(--muted)}
+    .delta{font-size:12px; font-weight:700}
+    .delta.up{color: var(--ok)}
+    .delta.down{color: var(--danger)}
+    .delta.flat{color: var(--muted)}
+    .list{display:flex; flex-direction:column; gap:8px}
+    .item{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      padding:10px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .item .left{display:flex; flex-direction:column; gap:4px; min-width:0}
+    .item .right{display:flex; align-items:center; gap:8px; flex-shrink:0}
+    .item .t{font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .item .d{color:var(--muted); font-size:12px}
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      color: var(--muted);
+      font-size:12px;
+      background: rgba(255,255,255,.03);
+    }
+    .tag.income{border-color: rgba(65,211,141,.35); color: rgba(65,211,141,.95)}
+    .tag.expense{border-color: rgba(255,91,110,.35); color: rgba(255,91,110,.95)}
+    .tag.transfer{border-color: rgba(255,204,102,.35); color: rgba(255,204,102,.95)}
+    .hr{height:1px; background: rgba(255,255,255,.08); margin:12px 0}
+    .progress{
+      height:10px; border-radius: 999px; background: rgba(255,255,255,.06);
+      overflow:hidden; border:1px solid rgba(255,255,255,.06);
+    }
+    .progress > i{display:block; height:100%; width:0%;}
+    .hint{font-size:12px; color:var(--muted); line-height:1.35}
+    .sectionTitle{margin:0 0 10px 2px; font-size:13px; color: var(--muted)}
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .tab{
+      padding:8px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      cursor:pointer;
+      user-select:none;
+      font-size:13px;
+      font-weight:750;
+    }
+    .tab.active{color: var(--text); border-color: rgba(87,166,255,.45); background: rgba(87,166,255,.14)}
+    /* pages */
+    .page{display:none}
+    .page.active{display:block}
+
+    /* === Spacing between top-level blocks inside each page === */
+.page > .grid,
+.page > .card {
+  margin-bottom: 12px;
+}
+.page > :last-child {
+  margin-bottom: 0;
+}
+
+/* чуть больше воздуха на телефонах */
+@media (max-width: 560px){
+  .page > .grid,
+  .page > .card {
+    margin-bottom: 14px;
+  }
+}
+
+    /* bottom nav */
+    .nav{
+      position: fixed;
+      left: 12px; right: 12px;
+      bottom: calc(10px + var(--safeB));
+      height: var(--navH);
+      border-radius: 18px;
+      background: rgba(10,12,18,.72);
+      border: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(14px);
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 10px;
+      z-index: 50;
+      box-shadow: var(--shadow);
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .nav .btnNav{
+      flex:1 1 auto;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:4px;
+      height:100%;
+      border-radius: 14px;
+      cursor:pointer;
+      color: var(--muted);
+      user-select:none;
+      padding: 8px 6px;
+      border:1px solid transparent;
+    }
+    .nav .btnNav.active{
+      color: var(--text);
+      border-color: rgba(87,166,255,.35);
+      background: rgba(87,166,255,.12);
+    }
+    .nav .btnNav .ico{font-size:18px}
+    .nav .btnNav .lbl{font-size:11px; font-weight:800; letter-spacing:.2px}
+    .nav .btnNav.sync{
+      flex: 0 0 120px;
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.08);
+    }
+
+    /* sync toast/modal */
+    .toast{
+      position: fixed;
+      left: 12px; right: 12px;
+      bottom: calc(var(--navH) + 34px + var(--safeB));
+      max-width: 1100px;
+      margin: 0 auto;
+      background: rgba(23,26,34,.92);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 12px 12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      display:none;
+      z-index: 60;
+    }
+    .toast.show{display:block}
+    .toastTop{display:flex; justify-content:space-between; align-items:center; gap:10px}
+    .toastTitle{font-weight:900}
+    .toastBody{margin-top:8px; color: var(--muted); font-size:12px; line-height:1.35; white-space:pre-wrap}
+    .x{
+      width:32px; height:32px;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius: 10px;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      user-select:none;
+    }
+
+    canvas{width:100%; height:260px; display:block}
+    .canvasWrap{height:260px}
+    @media (max-width: 420px){
+      canvas{height:240px}
+      .canvasWrap{height:240px}
+      .nav .btnNav.sync{flex:0 0 95px}
+    }
+
+    /* modal */
+    .modalBack{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none; align-items:flex-end; justify-content:center;
+      z-index: 80;
+      padding: 14px;
+      padding-bottom: calc(14px + var(--safeB));
+    }
+    .modalBack.show{display:flex}
+    .modal{
+      width:100%; max-width: 640px;
+      background: rgba(23,26,34,.98);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modalHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .modalHead h3{margin:0; font-size:15px}
+    .modalBody{padding: 12px 12px}
+
+/* =========================
+   MOBILE POLISH (iOS/Android)
+========================= */
+@media (max-width: 560px){
+  /* tighter vertical rhythm inside forms */
+  .row{ gap:10px !important; }
+  /* prevent flex children stretching vertically in column layout */
+  .row > *{ flex: 0 0 auto !important; }
+
+  .field{ margin-bottom:0 !important; }
+  label{ margin:0 0 4px 2px !important; }
+
+  /* controls: stable sizing + no weird overflow */
+  input, select, textarea{
+    width:100%;
+    max-width:100%;
+    box-sizing:border-box;
+    min-height:44px; /* iOS recommended touch target */
+    border-radius:12px;
+  }
+  textarea{ min-height:96px; }
+
+  /* cards: slightly tighter look on mobile */
+  .card{ border-radius: 16px; }
+
+  /* Sticky add button inside the New operation card */
+  .opCard{ overflow: visible !important; }
+  #btn-add-op{
+    position: sticky;
+    bottom: calc(var(--navH) + var(--safeB) + 12px);
+    z-index: 6;
+    margin-top: 14px;
+  }
+
+  /* make sure hint doesn't stick to the button */
+  #btn-add-op + .hint{ margin-top: 10px !important; }
+}
+
+/* =========================
+   DASHBOARD: currency block spacing
+========================= */
+#currency-structure{ margin-bottom: 14px; }
+#currency-structure + .hint{ margin-top: 16px !important; }
+
+    /* =========================
+   MOBILE: NEW OPERATION COMPACT
+========================= */
+@media (max-width: 640px) {
+
+  /* Карточка "Новая операция" — компактнее */
+  .card.new-operation {
+    padding: 14px !important;
+  }
+
+  /* Основная сетка формы */
+  .card.new-operation .row,
+  .card.new-operation .form-grid {
+    gap: 8px !important;
+  }
+
+  /* Поля — без нижних отступов */
+  .card.new-operation .field {
+    margin-bottom: 0 !important;
+  }
+
+  /* Лейблы ближе к инпутам */
+  .card.new-operation label {
+    margin-bottom: 2px !important;
+  }
+
+  /* Инпуты визуально плотнее */
+  .card.new-operation input,
+  .card.new-operation select,
+  .card.new-operation textarea {
+    margin-top: 0 !important;
+  }
+}
+    select {
+    color: #ffffff;
+  }
+
+  /* Раскрытый список */
+  select option {
+    color: #000000 !important;
+  }
+    
+  </style>
 </head>
 
 <body>
@@ -70,7 +475,7 @@
           <div class="row op-date-row">
             <div class="field">
               <label>Дата</label>
-              <input id="op-date" type="date" lang="ru" />
+              <input id="op-date" type="date" />
             </div>
             <div class="field">
               <label>Комментарий</label>
@@ -82,15 +487,6 @@
           <div class="hint" style="margin-top:8px">
             Удаление операции — через крестик в списке ниже (с подтверждением).
           </div>
-        </div>
-
-        <div class="card" id="can-spend-card">
-          <div class="cardTitle">
-            <h2>Можно потратить</h2>
-            <span class="pill" id="pill-can-spend"></span>
-          </div>
-          <div id="can-spend" class="canSpend"></div>
-          <div class="hint" style="margin-top:10px">Остаток по валютам = сумма средств на счетах минус расходы текущего месяца.</div>
         </div>
 
         <div class="card">
@@ -142,11 +538,11 @@
         <div id="custom-range" style="display:none; margin-top:10px" class="row">
           <div class="field">
             <label>С</label>
-            <input id="range-from" type="date" lang="ru" />
+            <input id="range-from" type="date" />
           </div>
           <div class="field">
             <label>По</label>
-            <input id="range-to" type="date" lang="ru" />
+            <input id="range-to" type="date" />
           </div>
           <div class="field" style="align-self:flex-end">
             <button class="btn secondary" id="btn-apply-range">Применить</button>
@@ -199,7 +595,8 @@
               <select id="dash-subcat-category"></select>
             </div>
           </div>
-          <div class="hint">Показывает распределение по подкатегориям для выбранной категории в текущем периоде. Полоска показывает долю от максимального значения.</div>
+          <div class="canvasWrap"><canvas id="subcat-chart"></canvas></div>
+          <div class="hint">Показывает распределение по подкатегориям для выбранной категории в текущем периоде.</div>
           <div class="hr"></div>
           <div id="subcat-list" class="list"></div>
         </div>
@@ -238,6 +635,14 @@
       <div class="grid cols2">
         <div class="card">
           <div class="cardTitle">
+            <h2>Цели</h2>
+            <button class="btn inline small" id="btn-new-goal">+ Цель</button>
+          </div>
+          <div id="goals-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <div class="cardTitle">
             <h2>Мотивационная шкала (доход)</h2>
             <span class="pill">столбчатая</span>
           </div>
@@ -260,14 +665,6 @@
               <div class="val" id="mot-gap">—</div>
             </div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Цели</h2>
-            <button class="btn inline small" id="btn-new-goal">+ Цель</button>
-          </div>
-          <div id="goals-list" class="list"></div>
         </div>
       </div>
     </section>
@@ -386,10 +783,6 @@
     </div>
   </div>
 
-<script>
-  // Runtime config: override via localStorage FIN_API_URL / FIN_API_KEY
-  window.__FIN_CONFIG = window.__FIN_CONFIG || {};
-</script>
-<script type="module" src="app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
