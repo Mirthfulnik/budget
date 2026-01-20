@@ -343,6 +343,16 @@ function defaultStages(){
   ];
 }
 
+function defaultQuotes(){
+  return [
+    {id:"q1", text:"Дисциплина сегодня создаёт свободу завтра.", author:"Джеймс Клир"},
+    {id:"q2", text:"Маленькие шаги ежедневно меняют жизнь.", author:"Питер Друкер"},
+    {id:"q3", text:"Фокус определяет результат.", author:"Робин Шарма"},
+    {id:"q4", text:"Прогресс важнее идеала.", author:"Наполеон Хилл"},
+    {id:"q5", text:"Действие побеждает страх.", author:"Уоррен Баффет"}
+  ];
+}
+
 function normalizeState(){
   // ensure ids exist
   state.categories.forEach((c,i)=>{ if(!c.id) c.id = "cat_"+i; if(!c.type) c.type="expense"; });
