@@ -912,10 +912,7 @@ function renderLimitsView(){
 
   const monthLimits = state.limits.filter(l => {
   if (String(l.month) !== String(month)) return false;
-  if (Number(l.amount) <= 0) return false;
-
-  const spent = spentByCat[String(l.categoryId)] || 0;
-  return spent > 0;
+  return Number(l.amount) > 0;
 });
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
@@ -951,7 +948,7 @@ const catsWithLimit = new Set(
         </div>
         <div class="right" style="flex-direction:column; align-items:flex-end">
           <div style="font-weight:900">${limitAmount===0 ? "—" : (remaining>=0 ? ruMoney(remaining) : "−"+ruMoney(Math.abs(remaining)))}</div>
-          <button class="btn inline small ghost" onclick="openLimitForCategory('${esc(cat.id)}')">Настроить</button>
+          <button class="icon-btn edit" aria-label="Настроить лимит" onclick="openLimitForCategory('${esc(cat.id)}')">⚙️</button>
         </div>
       </div>
     `;
@@ -1061,7 +1058,7 @@ function renderSavingPlan(){
         </div>
         <div class="right" style="flex-direction:column; align-items:flex-end">
           <div style="font-weight:900">${left===0 ? "0 ₽" : ruMoney(left)}</div>
-          <button class="btn inline small ghost" onclick="openGoalEdit('${esc(g.id)}')">Изм.</button>
+          <button class="icon-btn edit" aria-label="Редактировать" onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
         </div>
       </div>
     `;
@@ -1844,7 +1841,7 @@ function renderGoals(){
             <div class="d">Осталось: ${ruMoney(left)}</div>
           </div>
           <div class="right" style="flex-direction:column; align-items:flex-end">
-            <button class="btn inline small ghost" onclick="openGoalEdit('${esc(g.id)}')">Изм.</button>
+            <button class="icon-btn edit" aria-label="Редактировать" onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
             <button class="btn inline small danger" onclick="deleteGoalConfirm('${esc(g.id)}')">✕</button>
           </div>
         </div>
@@ -2088,7 +2085,7 @@ function renderSettings(){
         <div class="d">ID: ${esc(String(c.id))}</div>
       </div>
       <div class="right">
-        <button class="btn inline small ghost" onclick="openCategoryEditor('${esc(c.id)}')">Изм.</button>
+        <button class="icon-btn edit" aria-label="Редактировать" onclick="openCategoryEditor('${esc(c.id)}')">⚙️</button>
         <button class="btn inline small danger" onclick="deleteCategoryConfirm('${esc(c.id)}')">✕</button>
       </div>
     </div>
@@ -2114,7 +2111,7 @@ function renderSettings(){
           <div class="d">ID: ${esc(String(sc.id))}</div>
         </div>
         <div class="right">
-          <button class="btn inline small ghost" onclick="openSubcategoryEditor('${esc(sc.id)}')">Изм.</button>
+          <button class="icon-btn edit" aria-label="Редактировать" onclick="openSubcategoryEditor('${esc(sc.id)}')">⚙️</button>
           <button class="btn inline small danger" onclick="deleteSubcategoryConfirm('${esc(sc.id)}')">✕</button>
         </div>
       </div>
@@ -2130,7 +2127,7 @@ function renderSettings(){
         <div class="d">ID: ${esc(String(a.id))}</div>
       </div>
       <div class="right">
-        <button class="btn inline small ghost" onclick="openAccountEditor('${esc(a.id)}')">Изм.</button>
+        <button class="icon-btn edit" aria-label="Редактировать" onclick="openAccountEditor('${esc(a.id)}')">⚙️</button>
         <button class="btn inline small danger" onclick="deleteAccountConfirm('${esc(a.id)}')">✕</button>
       </div>
     </div>
@@ -2156,7 +2153,7 @@ function renderSettings(){
           <div class="d">Месяц: ${month} · Лимит: ${lim ? ruMoney(lim.amount) : "не задан"}</div>
         </div>
         <div class="right">
-          <button class="btn inline small" onclick="openLimitEditor({id:'${esc(lim?.id||"")}', categoryId:'${esc(c.id)}', month:'${month}', amount:'${esc(lim?.amount||"")}'}, 'Лимит: ${esc(c.name)}')">Настроить</button>
+          <button class="icon-btn edit" aria-label="Настроить лимит" onclick="openLimitEditor({id:'${esc(lim?.id||"")}', categoryId:'${esc(c.id)}', month:'${month}', amount:'${esc(lim?.amount||"")}'}, 'Лимит: ${esc(c.name)}')">⚙️</button>
         </div>
       </div>
     `;
@@ -2170,7 +2167,7 @@ function renderSettings(){
         <div class="d">ID: ${esc(String(s.id))}</div>
       </div>
       <div class="right">
-        <button class="btn inline small ghost" onclick="openStageEditor('${esc(s.id)}')">Изм.</button>
+        <button class="icon-btn edit" aria-label="Редактировать" onclick="openStageEditor('${esc(s.id)}')">⚙️</button>
         <button class="btn inline small danger" onclick="deleteStageConfirm('${esc(s.id)}')">✕</button>
       </div>
     </div>
@@ -2184,7 +2181,7 @@ function renderSettings(){
         <div class="d">${esc(q.author||"")}</div>
       </div>
       <div class="right">
-        <button class="btn inline small ghost" onclick="openQuoteEditor('${esc(q.id)}')">Изм.</button>
+        <button class="icon-btn edit" aria-label="Редактировать" onclick="openQuoteEditor('${esc(q.id)}')">⚙️</button>
         <button class="btn inline small danger" onclick="deleteQuoteConfirm('${esc(q.id)}')">✕</button>
       </div>
     </div>
@@ -2704,3 +2701,29 @@ function filterOpsByCurrency(ops, cur){
   if (!cur || cur==='ALL') return ops;
   return ops.filter(o=>opCurrency(o)===cur);
 }
+
+
+// ===============================
+// Expose handlers for inline onclick (module-safe)
+// ===============================
+try{
+  window.__FinanceExpose = true;
+  Object.assign(window, {
+    openLimitForCategory,
+    openLimitEditor,
+    openOpEdit,
+    confirmDeleteOp,
+    openGoalEdit,
+    deleteGoalConfirm,
+    openCategoryEditor,
+    deleteCategoryConfirm,
+    openSubcategoryEditor,
+    deleteSubcategoryConfirm,
+    openAccountEditor,
+    deleteAccountConfirm,
+    openStageEditor,
+    deleteStageConfirm,
+    openQuoteEditor,
+    deleteQuoteConfirm
+  });
+}catch(e){}
