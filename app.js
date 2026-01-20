@@ -967,34 +967,36 @@ const catsWithLimit = new Set(
 
 function renderOperations(){
   const ops = [...state.operations].sort((a,b)=>new Date(b.date||b.createdAt)-new Date(a.date||a.createdAt));
+
   if (!ops.length){
     $("#ops-view").innerHTML = `<div class="muted">Пока нет операций. Добавь первую сверху.</div>`;
+    ensureToggle("ops-view");
     return;
-  ensureToggle("ops-view");
   }
-  // group by date
+
   const groups = {};
   for (const o of ops){
     const d = isoDate(o.date || o.createdAt || new Date());
     (groups[d] ||= []).push(o);
   }
+
   const dates = Object.keys(groups).sort((a,b)=> (a<b?1:-1));
   const html = dates.map(d=>{
     const items = groups[d].map(o=>{
       const cat = catById(o.categoryId);
       const sub = subcatById(o.subcategoryId);
       const acc = accById(o.accountId);
-      const tagCls = o.type;
+
       const sign = o.type==="expense" ? "−" : (o.type==="income" ? "+" : "↔");
       const cur = opCurrency(o);
       const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
       const note = (o.comment||"").trim();
-      const pct = maxVal>0 ? Math.round((Number(r.amount||0)/maxVal)*100) : 0;
+
       return `
         <div class="item">
           <div class="left">
             <div class="t">
-              <span class="tag ${tagCls}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
+              <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
               <span style="margin-left:6px">${esc(cat?.name || "Без категории")}${sub ? ` / ${esc(sub.name)}` : ""}</span>
             </div>
             <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)} · ${note ? esc(note) : "—"}</div>
@@ -1007,6 +1009,18 @@ function renderOperations(){
         </div>
       `;
     }).join("");
+
+    const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
+    return `
+      <div class="op-date-header" style="margin: 14px 0 8px; color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
+      <div class="list">${items}</div>
+    `;
+  }).join("");
+
+  $("#ops-view").innerHTML = html;
+  ensureToggle("ops-view");
+}
+
 
     const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
     return `
