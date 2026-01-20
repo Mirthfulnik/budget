@@ -61,8 +61,31 @@ const isoDate = (d) => {
   const dd = String(x.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 };
+// Normalizes many month representations to a stable key: "YYYY-MM".
+// Why: in your current dataset, limits.month comes as "2025-12-31" for January 2026
+// (typical timezone / month-marker issue). We treat "last day of month" as a marker
+// for the *next* month.
 const yyyymm = (d) => {
+  if (!d) return "";
+  if (typeof d === 'string'){
+    const s = d.trim();
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m){
+      const y = Number(m[1]);
+      const mo = Number(m[2]); // 1..12
+      const day = Number(m[3]);
+      const lastDay = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+      let t = Date.UTC(y, mo-1, day);
+      if (day === lastDay) t += 86400000; // +1 day => next month
+      const dt = new Date(t);
+      const yyyy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth()+1).padStart(2,"0");
+      return `${yyyy}-${mm}`;
+    }
+  }
   const x = new Date(d);
+  if (isNaN(x.getTime())) return "";
   const yyyy = x.getFullYear();
   const mm = String(x.getMonth()+1).padStart(2,"0");
   return `${yyyy}-${mm}`;
@@ -279,7 +302,11 @@ async function syncAll(reason="auto"){
     state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
     state.accounts   = Array.isArray(d.accounts) ? d.accounts : defaultAccounts();
     state.accounts = state.accounts.map(a=>({currency:'RUB', ...a}));
-    state.limits     = Array.isArray(d.limits) ? d.limits : [];
+    state.limits     = Array.isArray(d.limits) ? d.limits.map(l=>({
+      ...l,
+      // normalize month to "YYYY-MM" so limits match the current month
+      month: yyyymm(l?.month || "")
+    })) : [];
     state.operations = Array.isArray(d.operations) ? d.operations : [];
     state.goals      = Array.isArray(d.goals) ? d.goals : [];
     state.stages     = Array.isArray(d.stages) ? d.stages : defaultStages();
@@ -883,25 +910,21 @@ function renderLimitsView(){
     spentByCat[k] = (spentByCat[k]||0) + Number(o.amount||0);
   }
 
-  // Month normalization: accept "YYYY-MM", "YYYY-MM-DD", Date objects, etc.
-  const normMonth = (m)=>{
-    if (m==null) return "";
-    if (m instanceof Date) return yyyymm(m);
-    const s = String(m).trim();
-    const m1 = s.match(/^(\d{4})-(\d{2})/);
-    if (m1) return `${m1[1]}-${m1[2]}`;
-    return s;
-  };
-
-  // IMPORTANT: do NOT hide limits when spent==0; show all configured limits for the month.
   const monthLimits = state.limits.filter(l => {
-    if (normMonth(l.month) !== month) return false;
-    return Number(l.amount) > 0;
-  });
+  if (String(l.month) !== String(month)) return false;
+  if (Number(l.amount) <= 0) return false;
+
+  const spent = spentByCat[String(l.categoryId)] || 0;
+  return spent > 0;
+});
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
   // categories that actually have a limit set (>0) this month
-  const catsWithLimit = new Set(monthLimits.map(l => String(l.categoryId)));
+const catsWithLimit = new Set(
+  monthLimits
+    .filter(l => l.amount != null && Number(l.amount) > 0)
+    .map(l => String(l.categoryId))
+);
   
   const expCats = state.categories
   .filter(c => c.type === "expense")
@@ -934,7 +957,7 @@ function renderLimitsView(){
     `;
   });
 
-  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Лимиты за ${month} не заданы.</div>`;
+  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
 
   // summary pill
   const totalLimit = sum(monthLimits.map(l=>Number(l.amount||0)));
@@ -969,7 +992,7 @@ function renderOperations(){
       const cur = opCurrency(o);
       const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
       const note = (o.comment||"").trim();
-
+      const pct = maxVal>0 ? Math.round((Number(r.amount||0)/maxVal)*100) : 0;
       return `
         <div class="item">
           <div class="left">
@@ -1071,23 +1094,11 @@ $("#btn-add-op").addEventListener("click", async ()=>{
 
   try{
     toast("Операция", "Сохраняю…", "info", 0);
-    const res = await apiPost("addOperation", { type, amount, categoryId, subcategoryId, accountId, currency, date, comment });
-
-    const created = res?.data?.operation;
-    if (created){
-      // keep newest on top
-      state.operations = [created, ...state.operations.filter(o=>String(o.id)!==String(created.id))];
-    }
-    if (res?.data?.balanceByCurrency){
-      state.balanceByCurrency = res.data.balanceByCurrency;
-    }
-
+    await apiPost("addOperation", { type, amount, categoryId, subcategoryId, accountId, currency, date, comment });
     $("#op-amount").value = "";
     $("#op-comment").value = "";
     saveLastOpPrefs_();
-
-    rerenderAfterDataChange_();
-    toast("Готово", "Операция добавлена", "success", 1800);
+    await syncAll("afterAdd");
   }catch(err){
     toast("Ошибка", String(err.message || err), "error", 0);
   }
@@ -1164,36 +1175,13 @@ function openOpEdit(id){
     };
     try{
       toast("Операция", "Сохраняю...", "info", 0);
-      const res = await apiPost("updateOperation", data);
-
-      // Apply server response without full sync
-      const updated = res?.data?.operation;
-      if (updated){
-        const idx = state.operations.findIndex(o=>String(o.id)===String(updated.id));
-        if (idx >= 0) state.operations[idx] = { ...state.operations[idx], ...updated };
-        else state.operations.unshift(updated);
-      }
-      if (res?.data?.balanceByCurrency){
-        state.balanceByCurrency = res.data.balanceByCurrency;
-      }
-
+      await apiPost("updateOperation", data);
       closeModal();
-      rerenderAfterDataChange_();
-      toast("Готово", "Операция обновлена", "success", 1800);
+      await syncAll("afterUpdate");
     }catch(err){
       toast("Ошибка", String(err.message || err), "error", 0);
     }
   });
-}
-
-// Rerender current UI after partial data updates (without full sync)
-function rerenderAfterDataChange_(){
-  // Pult depends on operations + limits + balances
-  renderPult();
-  // If dashboard/goals/settings are visible, rerender as well
-  if ($("#page-dashboard")?.classList.contains("active")) renderDashboard();
-  if ($("#page-goals")?.classList.contains("active")) renderGoals();
-  if ($("#page-settings")?.classList.contains("active")) renderSettings();
 }
 
 function confirmDeleteOp(id){
@@ -1218,17 +1206,9 @@ function confirmDeleteOp(id){
   $("#modalYes").addEventListener("click", async ()=>{
     try{
       toast("Удаление", "Удаляю…", "info", 0);
-      const res = await apiPost("deleteOperation", { id });
-
-      const deletedId = res?.data?.deletedId || id;
-      state.operations = state.operations.filter(o=>String(o.id)!==String(deletedId));
-      if (res?.data?.balanceByCurrency){
-        state.balanceByCurrency = res.data.balanceByCurrency;
-      }
-
+      await apiPost("deleteOperation", { id });
       closeModal();
-      rerenderAfterDataChange_();
-      toast("Готово", "Операция удалена", "success", 1800);
+      await syncAll("afterDelete");
     }catch(err){
       toast("Ошибка", String(err.message || err), "error", 0);
     }
@@ -1762,6 +1742,7 @@ function renderSubcategoryDashboard(curOps){
       </div>
     `;
   }).join("") : `<div class="muted">Нет операций по выбранной категории в периоде.</div>`;
+/div>`;
 }
 
 
@@ -1855,7 +1836,7 @@ function renderGoals(){
       const pct = target>0 ? clamp((saved/target)*100, 0, 100) : 0;
       const d = g.deadline ? new Date(g.deadline) : null;
       const left = Math.max(0, target - saved);
-
+      const pct = maxVal>0 ? Math.round((Number(r.amount||0)/maxVal)*100) : 0;
       return `
         <div class="item">
           <div class="left">
