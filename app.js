@@ -666,18 +666,6 @@ function renderOperations(){
   ensureToggle("ops-view");
 }
 
-
-    const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
-    return `
-      <div class="op-date-header" style="margin: 14px 0 8px; color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
-      <div class="list">${items}</div>
-    `;
-  }).join("");
-
-  $("#ops-view").innerHTML = html;
-  ensureToggle("ops-view");
-}
-
 function renderSavingPlan(){
   const todayD = today();
   if (!state.goals.length){
