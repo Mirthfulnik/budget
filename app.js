@@ -1742,7 +1742,6 @@ function renderSubcategoryDashboard(curOps){
       </div>
     `;
   }).join("") : `<div class="muted">Нет операций по выбранной категории в периоде.</div>`;
-/div>`;
 }
 
 
@@ -1836,7 +1835,6 @@ function renderGoals(){
       const pct = target>0 ? clamp((saved/target)*100, 0, 100) : 0;
       const d = g.deadline ? new Date(g.deadline) : null;
       const left = Math.max(0, target - saved);
-      const pct = maxVal>0 ? Math.round((Number(r.amount||0)/maxVal)*100) : 0;
       return `
         <div class="item">
           <div class="left">
