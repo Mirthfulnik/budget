@@ -301,7 +301,11 @@ async function syncAll(reason="auto"){
     state.categories = Array.isArray(d.categories) ? d.categories : [];
     state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
     state.accounts   = Array.isArray(d.accounts) ? d.accounts : defaultAccounts();
-    state.accounts = state.accounts.map(a=>({currency:'RUB', ...a}));
+    state.accounts = state.accounts.map(a=>({
+  ...a,
+  currency: a.currency || 'RUB',
+  kind: a.kind || a.type || a.accountType || ""
+}));
     state.limits     = Array.isArray(d.limits) ? d.limits.map(l=>({
       ...l,
       // normalize month to "YYYY-MM" so limits match the current month
