@@ -876,6 +876,17 @@ function getMonthOps(monthYYYYMM){
 
 function renderLimitsView(){
   const month = yyyymm(new Date());
+
+  // helper: tolerate different month formats from Google Sheets
+  const normMonth = (v)=>{
+    if (v==null) return "";
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}/.test(s)) return s.slice(0,7);
+    const d = new Date(s);
+    if (!isNaN(d)) return yyyymm(d);
+    return s;
+  };
+
   const monthOps = getMonthOps(month).filter(o=>o.type==="expense");
   const spentByCat = {};
   for (const o of monthOps){
@@ -883,25 +894,19 @@ function renderLimitsView(){
     spentByCat[k] = (spentByCat[k]||0) + Number(o.amount||0);
   }
 
+  // IMPORTANT: show limits even if spent==0 (otherwise they "disappear" on frontend)
   const monthLimits = state.limits.filter(l => {
-  if (String(l.month) !== String(month)) return false;
-  if (Number(l.amount) <= 0) return false;
+    if (normMonth(l.month) !== month) return false;
+    return Number(l.amount) > 0 && String(l.categoryId||"") !== "";
+  });
 
-  const spent = spentByCat[String(l.categoryId)] || 0;
-  return spent > 0;
-});
   const limitsMap = {};
   monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
-  // categories that actually have a limit set (>0) this month
-const catsWithLimit = new Set(
-  monthLimits
-    .filter(l => l.amount != null && Number(l.amount) > 0)
-    .map(l => String(l.categoryId))
-);
-  
+
+  const catsWithLimit = new Set(monthLimits.map(l => String(l.categoryId)));
   const expCats = state.categories
-  .filter(c => c.type === "expense")
-  .filter(c => catsWithLimit.has(String(c.id)));
+    .filter(c => c.type === "expense")
+    .filter(c => catsWithLimit.has(String(c.id)));
 
   const rows = expCats.map(cat=>{
     const lim = limitsMap[String(cat.id)];
@@ -910,8 +915,9 @@ const catsWithLimit = new Set(
     const remaining = limitAmount > 0 ? (limitAmount - spent) : null;
     const pct = (limitAmount>0) ? clamp((spent/limitAmount)*100, 0, 160) : 0;
 
-    const barColor = (limitAmount===0) ? "rgba(255,255,255,.25)" : (spent>limitAmount ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
-    const status = (limitAmount===0) ? "Лимит не задан" : (spent>limitAmount ? "Превышено" : "Потрачено");
+    const over = (limitAmount>0 && spent>limitAmount);
+    const barColor = (limitAmount===0) ? "rgba(255,255,255,.25)" : (over ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
+    const status = (limitAmount===0) ? "Лимит не задан" : (over ? "Превышено" : "Потрачено");
 
     return `
       <div class="item">
@@ -930,7 +936,7 @@ const catsWithLimit = new Set(
     `;
   });
 
-  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
+  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Лимиты не найдены для ${esc(month)}. Проверь, что в таблице «Лимиты» заполнены колонки month=YYYY-MM и categoryId.</div>`;
 
   // summary pill
   const totalLimit = sum(monthLimits.map(l=>Number(l.amount||0)));
