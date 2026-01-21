@@ -1134,7 +1134,7 @@ function drawBarChart(canvas, from, to, ops){
   const pad = 12;
   const topPad = 18;
   const rotateLabels = (state.period.kind==="month" || state.period.kind==="year" || state.period.kind==="custom");
-  const bottomPad = rotateLabels ? 44 : 28;
+  const bottomPad = rotateLabels ? 70 : 28;
   const chartW = w - pad*2;
   const chartH = h - topPad - bottomPad;
 // axis baseline
@@ -1182,7 +1182,7 @@ function drawBarChart(canvas, from, to, ops){
       ctx.fillText(data[i].label, x0, topPad+chartH + 18);
     } else {
       ctx.save();
-      ctx.translate(x0, topPad+chartH + 24);
+      ctx.translate(x0, topPad+chartH + 18);
       ctx.rotate(-Math.PI/2);
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
@@ -1194,7 +1194,7 @@ function drawBarChart(canvas, from, to, ops){
 
 // legend
   ctx.textAlign = "left";
-  ctx.font = "12px Inter, system-ui, sans-serif";
+  ctx.font = "11px Inter, system-ui, sans-serif";
   ctx.fillStyle = "rgba(65,211,141,.9)";
   ctx.fillText("Доходы", pad, 16);
   ctx.fillStyle = "rgba(255,91,110,.9)";
