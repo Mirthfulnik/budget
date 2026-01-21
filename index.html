@@ -2,386 +2,521 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Finance 2026</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VK Ads Excel Enricher</title>
 
-  </head>
+  <!-- Author: mirthfulnik -->
+  <style>
+    :root { --bg:#0b0b12; --card:#141428; --text:#eaeaf2; --muted:#a8a8c0; --btn:#2a6bff; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    .card { background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 18px; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    p { margin: 0 0 12px; color: var(--muted); line-height: 1.45; }
+    .row { display:flex; gap:12px; flex-wrap: wrap; align-items:center; }
+    input[type="file"] { padding: 10px; background: rgba(255,255,255,.06); border-radius: 12px; border:1px solid rgba(255,255,255,.12); color: var(--text); width: 360px; max-width: 100%; }
+    button {
+      padding: 10px 14px; border-radius: 12px; border:0; cursor:pointer;
+      background: var(--btn); color:white; font-weight: 650;
+    }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .log { margin-top: 12px; font-size: 13px; color: var(--text); white-space: pre-wrap; }
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.62);
+      display:none; align-items:center; justify-content:center; z-index: 50;
+    }
+    .spinnerBox {
+      background: rgba(20,20,40,.92); border:1px solid rgba(255,255,255,.1);
+      border-radius: 18px; padding: 18px 16px; width: min(420px, 92vw);
+      text-align:center;
+    }
+    .yin { font-size: 44px; display:inline-block; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay p { margin-top: 10px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    code { background: rgba(255,255,255,.08); padding: 2px 6px; border-radius: 8px; }
+  </style>
+</head>
 
 <body>
   <div class="wrap">
-    <!-- PULT -->
-    <section id="page-pult" class="page active">
-      
-      <div class="card" id="quote-day-card" style="margin-bottom:12px">
-        <div class="cardTitle">
-          <h2>Цитата дня</h2>
-          <span class="pill" id="quote-day-pill">мотивация</span>
-        </div>
-        <div id="quote-day-text" style="font-weight:850; line-height:1.35">—</div>
-        <div id="quote-day-author" class="muted" style="margin-top:8px"></div>
-      </div>
-<div class="grid cols2">
-        <div class="card opCard">
-          <div class="cardTitle">
-            <h2>Новая операция</h2>
-            <span class="pill" id="pill-month"></span>
-          </div>
+    <div class="card">
+      <h1>Обработчик Excel из ВК Рекламы (уровень групп)</h1>
+      <p>
+        Загрузи выгрузку <code>.xlsx</code> → получи файл с метриками (CPM/CR1/CR2), прогнозом (прослушивания/добавления/ставки) и листом «Прогноз».
+      </p>
 
-          <div class="row">
-            <div class="field">
-              <label>Тип</label>
-              <select id="op-type">
-                <option value="expense">Расход</option>
-                <option value="income">Доход</option>
-                <option value="transfer">Перевод</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Сумма</label>
-              <input id="op-amount" type="number" inputmode="decimal" placeholder="0" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Категория</label>
-              <select id="op-category"></select>
-            </div>
-            <div class="field">
-              <label>Подкатегория</label>
-              <select id="op-subcategory"></select>
-            </div>
-            <div class="field">
-              <label>Счёт</label>
-              <select id="op-account"></select>
-            </div>
-            <div class="field">
-              <label>Валюта</label>
-              <select id="op-currency">
-                <option value="RUB">RUB · ₽</option>
-                <option value="USD">USD · $</option>
-                <option value="EUR">EUR · €</option>
-                <option value="CNY">CNY · ¥</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row op-date-row">
-            <div class="field">
-              <label>Дата</label>
-              <input id="op-date" type="date" />
-            </div>
-            <div class="field">
-              <label>Комментарий</label>
-              <input id="op-comment" type="text" placeholder="необязательно" />
-            </div>
-          </div>
-
-          <button class="btn" id="btn-add-op">Добавить операцию</button>
-          <div class="hint" style="margin-top:8px">
-            Удаление операции — через крестик в списке ниже (с подтверждением).
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Лимиты (месяц)</h2>
-            <span class="pill" id="pill-limits"></span>
-          </div>
-          <div id="limits-view" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Лимиты хранятся в Google Таблице, но настраиваются в разделе «Настройки».
-          </div>
-        </div>
+      <div class="row">
+        <input id="file" type="file" accept=".xlsx" />
+        <button id="run" disabled>Обработать и скачать</button>
       </div>
 
-      <div class="card">
-        <div class="cardTitle">
-          <h2>Операции</h2>
-          <div class="row" style="flex:0 0 auto; gap:8px">
-            <button class="btn inline small ghost" id="btn-refresh">Обновить</button>
-          </div>
-        </div>
-        <div id="ops-view"></div>
+      <div class="hint">
+        Ожидается лист <code>Группы</code> и колонки: «Потрачено всего, ₽», «Показы», «Начали прослушивание», «Добавили аудио», «Название группы». Опционально: «Цена за добавление аудио, ₽» (для подсветки).
       </div>
 
-      <div class="card">
-        <div class="cardTitle">
-          <h2>План накоплений на ключевые события</h2>
-          <span class="pill">по целям</span>
-        </div>
-        <div id="saving-plan" class="list"></div>
-      </div>
-    </section>
-
-    <!-- DASHBOARD -->
-    <section id="page-dashboard" class="page">
-      <div class="card">
-        <div class="cardTitle">
-          <h2>Аналитика</h2>
-          <span class="pill" id="pill-period"></span>
-        </div>
-
-        <div class="tabs" id="period-tabs">
-          <div class="tab active" data-period="week">Неделя</div>
-          <div class="tab" data-period="month">Месяц</div>
-          <div class="tab" data-period="year">Год</div>
-          <div class="tab" data-period="custom">Период</div>
-        </div>
-
-        <div id="custom-range" style="display:none; margin-top:10px" class="row">
-          <div class="field">
-            <label>С</label>
-            <input id="range-from" type="date" />
-          </div>
-          <div class="field">
-            <label>По</label>
-            <input id="range-to" type="date" />
-          </div>
-          <div class="field" style="align-self:flex-end">
-            <button class="btn secondary" id="btn-apply-range">Применить</button>
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <div class="grid cols3" id="kpi-row"></div>
-      </div>
-
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Динамика (доходы/расходы/баланс)</h2>
-            <span class="pill">столбцы</span>
-          </div>
-          <div class="canvasWrap"><canvas id="bar-chart"></canvas></div>
-          <div class="hint">Наведи (ПК) или нажми (телефон) на столбец, чтобы увидеть значения.</div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Структура по категориям</h2>
-            <span class="pill">круг</span>
-          </div>
-          <div class="row">
-            <div class="pieCol" style="flex:1 1 300px">
-              <div class="sectionTitle">Расходы</div>
-              <div class="canvasWrap"><canvas id="pie-expense"></canvas></div>
-              <div class="pieLegend" id="pie-expense-legend"></div>
-            </div>
-            <div class="pieCol" style="flex:1 1 300px">
-              <div class="sectionTitle">Доходы</div>
-              <div class="canvasWrap"><canvas id="pie-income"></canvas></div>
-              <div class="pieLegend" id="pie-income-legend"></div>
-            </div>
-          </div>
-          <div class="hint">Нажми на сектор или на элемент легенды, чтобы увидеть сумму и долю.</div>
-        </div>
-      </div>
-
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Структура по подкатегориям</h2>
-            <span class="pill">выбранная категория</span>
-          </div>
-          <div class="row">
-            <div class="field" style="flex:1 1 260px">
-              <label>Категория</label>
-              <select id="dash-subcat-category"></select>
-            </div>
-          </div>
-          <div class="hint">Показывает распределение по подкатегориям для выбранной категории в текущем периоде.</div>
-          <div class="hr"></div>
-          <div id="subcat-list" class="list"></div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Структура по валютам</h2>
-            <span class="pill">счета</span>
-          </div>
-          <div id="currency-structure" class="list"></div>
-          <div class="hint">Показывает остатки по счетам, сгруппированные по валютам (расчёт по операциям в выбранной валюте).</div>
-        </div>
-      </div>
-
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>ТОП категорий расходов</h2>
-            <span class="pill">топ-5</span>
-          </div>
-          <div id="top-expense" class="list"></div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>ТОП категорий доходов</h2>
-            <span class="pill">топ-5</span>
-          </div>
-          <div id="top-income" class="list"></div>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- GOALS -->
-    <section id="page-goals" class="page">
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Цели</h2>
-            <button class="btn inline small" id="btn-new-goal">+ Цель</button>
-          </div>
-          <div id="goals-list" class="list"></div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Мотивационная шкала (доход)</h2>
-            <span class="pill">столбчатая</span>
-          </div>
-          <div class="hint" style="margin-bottom:8px">
-            Минимальный порог: 160 000 ₽. Этапы можно менять в «Настройки → Мотивационная шкала: этапы».
-          </div>
-          <div class="canvasWrap"><canvas id="motivation-bar"></canvas></div>
-          <div class="hr"></div>
-          <div class="row">
-            <div class="kpi">
-              <div class="sub">Текущий среднемесячный доход</div>
-              <div class="val" id="mot-cur">—</div>
-            </div>
-            <div class="kpi">
-              <div class="sub">Следующий этап</div>
-              <div class="val" id="mot-next">—</div>
-            </div>
-            <div class="kpi">
-              <div class="sub">Нужно прибавить</div>
-              <div class="val" id="mot-gap">—</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SETTINGS -->
-    <section id="page-settings" class="page">
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Категории</h2>
-            <button class="btn inline small" id="btn-new-cat">+ Категория</button>
-          </div>
-          <div id="cats-list" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Список категорий хранится в Google Таблице, но управляется отсюда.
-          </div>
-        </div>
-
-
-
-        
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Подкатегории</h2>
-            <button class="btn inline small" id="btn-new-subcat">+ Подкатегория</button>
-          </div>
-          <div class="hint" style="margin-bottom:10px">
-            Подкатегории привязываются к существующим категориям (доход/расход). На «Пульте» можно выбирать категорию + подкатегорию.
-          </div>
-          <div id="subcats-list" class="list"></div>
-        </div>
-
-<div class="card">
-          <div class="cardTitle">
-            <h2>Счета</h2>
-            <button class="btn inline small" id="btn-new-acc">+ Счёт</button>
-          </div>
-          <div id="accounts-list" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            «Счета» — это откуда/куда идут деньги (карта, наличные, вклад и т. п.). Список хранится в Google Таблице, но настраивается здесь.
-          </div>
-        </div>
-
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Лимиты</h2>
-            <button class="btn inline small" id="btn-new-limit">+ Лимит</button>
-          </div>
-          <div id="limits-settings" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Лимиты сохраняются в Google Таблице, редактирование — через сайт.
-          </div>
-        </div>
-      </div>
-
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Мотивационная шкала: этапы</h2>
-            <button class="btn inline small" id="btn-new-stage">+ Этап</button>
-          </div>
-          <div id="stages-list" class="list"></div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Мотивации (цитаты)</h2>
-            <button class="btn inline small" id="btn-new-quote">+ Цитата</button>
-          </div>
-          <div class="hint" style="margin-bottom:10px">
-            В приложении показывается «цитата дня». Можно добавлять свои и удалять.
-          </div>
-          <div id="quotes-list" class="list"></div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- bottom nav -->
-  <div class="nav" role="navigation" aria-label="Навигация">
-    <div class="btnNav active" data-page="pult">
-      <div class="ico">🧮</div><div class="lbl">Пульт</div>
-    </div>
-    <div class="btnNav" data-page="dashboard">
-      <div class="ico">📊</div><div class="lbl">Дашборд</div>
-    </div>
-    <div class="btnNav" data-page="goals">
-      <div class="ico">🎯</div><div class="lbl">Цели</div>
-    </div>
-    <div class="btnNav" data-page="settings">
-      <div class="ico">⚙️</div><div class="lbl">Настройки</div>
-    </div>
-    <div class="btnNav sync" id="btn-sync">
-      <div class="ico">🔄</div><div class="lbl">Синхр.</div>
+      <div id="log" class="log"></div>
     </div>
   </div>
 
-  <!-- toast -->
-  <div class="toast" id="toast">
-    <div class="toastTop">
-      <div class="toastTitle" id="toastTitle">Статус</div>
-      <div class="x" id="toastClose">✕</div>
-    </div>
-    <div class="toastBody" id="toastBody"></div>
-  </div>
-
-  <!-- modal -->
-  <div class="modalBack" id="modalBack">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="modalHead">
-        <h3 id="modalTitle">Модалка</h3>
-        <div class="x" id="modalClose">✕</div>
-      </div>
-      <div class="modalBody" id="modalBody"></div>
+  <div id="overlay" class="overlay">
+    <div class="spinnerBox">
+      <div class="yin">☯️</div>
+      <p>Обрабатываю файл…</p>
+      <div class="small">Author: mirthfulnik</div>
     </div>
   </div>
 
-  <script type="module" src="./app.js"></script>
-  <div id="chartTip" class="chartTip" style="display:none"></div>
+  <!-- ExcelJS + FileSaver (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <script>
+    // Author: mirthfulnik
+    // Update 2026-01-21: Показы(факт) как формула-ссылка; Потенциальный охват = Аудитория/2 - Показы(факт);
+    // добавлены Прогноз прослушиваний/добавлений/ставок, столбец Запуск с dropdown и лист "Прогноз".
+
+    const $file = document.getElementById('file');
+    const $run  = document.getElementById('run');
+    const $log  = document.getElementById('log');
+    const $overlay = document.getElementById('overlay');
+
+    $file.addEventListener('change', () => {
+      $run.disabled = !$file.files || !$file.files[0];
+      $log.textContent = '';
+    });
+
+    $run.addEventListener('click', async () => {
+      if (!$file.files || !$file.files[0]) return;
+
+      const inFile = $file.files[0];
+      const baseName = (inFile.name || 'vk_export.xlsx').replace(/\.xlsx$/i, '');
+      const outName = baseName + ' (enriched).xlsx';
+
+      showOverlay(true);
+      log('Читаю файл…');
+
+      try {
+        const buffer = await inFile.arrayBuffer();
+        const inWb = new ExcelJS.Workbook();
+        await inWb.xlsx.load(buffer);
+
+        const inWs = inWb.getWorksheet('Группы') || inWb.worksheets[0];
+        if (!inWs) throw new Error('Не найден ни один лист в книге.');
+
+        log('Нашёл лист: ' + (inWs.name || '(без имени)'));
+        const headerRow = inWs.getRow(1);
+
+        // Read headers (1-based cells)
+        const srcHeaders = [];
+        for (let c = 1; c <= inWs.columnCount; c++) {
+          srcHeaders.push(headerRow.getCell(c).value ?? '');
+        }
+
+        // Normalize helper
+        const norm = (s) => String(s ?? '')
+          .trim()
+          .replace(/\\s+/g, ' ')
+          .toLowerCase()
+          .replace(/ё/g, 'е');
+
+        // Map normalizedHeader -> 1-based index
+        const map = new Map();
+        srcHeaders.forEach((h, idx) => map.set(norm(h), idx + 1));
+
+        const need = {
+          spent: 'потрачено всего, ₽',
+          impr:  'показы',
+          start: 'начали прослушивание',
+          add:   'добавили аудио',
+          group: 'название группы',
+          cpa:   'цена за добавление аудио, ₽'
+        };
+
+        const spentCol = map.get(need.spent);
+        const imprCol  = map.get(need.impr);
+        const startCol = map.get(need.start);
+        const addCol   = map.get(need.add);
+
+        // "Название группы" иногда может быть с пробелами — ищем по includes
+        let groupNameCol = map.get(need.group);
+        if (!groupNameCol) {
+          for (const [k, v] of map.entries()) {
+            if (k.includes('название группы')) { groupNameCol = v; break; }
+          }
+        }
+
+        // "Цена за добавление аудио, ₽" — может отличаться в названии, ищем по includes
+        let cpaCol = map.get(need.cpa);
+        if (!cpaCol) {
+          for (const [k, v] of map.entries()) {
+            if (k.includes('цена за добавление') && k.includes('аудио')) { cpaCol = v; break; }
+          }
+        }
+
+        const missing = [];
+        if (!spentCol) missing.push('«Потрачено всего, ₽»');
+        if (!imprCol)  missing.push('«Показы»');
+        if (!startCol) missing.push('«Начали прослушивание»');
+        if (!addCol)   missing.push('«Добавили аудио»');
+        if (!groupNameCol) missing.push('«Название группы»');
+
+        if (missing.length) {
+          throw new Error('Не найдены обязательные колонки: ' + missing.join(', ') +
+            '.\\nПроверь, что это выгрузка ВК на уровне групп и что заголовки в первой строке.');
+        }
+
+        log(`Колонки найдены: spent=${spentCol}, impr=${imprCol}, start=${startCol}, add=${addCol}, group=${groupNameCol}` + (cpaCol ? `, cpa=${cpaCol}` : ', cpa=— (не найдено)'));
+
+        // Create output workbook
+        const outWb = new ExcelJS.Workbook();
+        outWb.creator = 'mirthfulnik';
+        outWb.created = new Date();
+
+        // Hidden list sheet for checkbox dropdown (shows ☑/☐ but stores 0/1)
+        const outLists = outWb.addWorksheet('__lists');
+        try { outLists.state = 'veryHidden'; } catch (e) { try { outLists.state = 'hidden'; } catch(e2){} }
+        outLists.getCell('A1').value = 0;
+        outLists.getCell('A2').value = 1;
+        outLists.getColumn(1).width = 6;
+        outLists.getColumn(1).numFmt = '[=1]"☑";[=0]"☐";""';
+        outLists.getColumn(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+        const outGroups = outWb.addWorksheet('Группы', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+        // Planning columns (left block)
+        const PLAN_HEADERS = [
+          'Аудитория',              // A (manual)
+          'Показы (факт)',          // B (formula link to VK "Показы")
+          'Потенциальный охват',    // C = A/2 - B
+          'Бюджет',                 // D = C/1000 * CPM
+          'Прогноз прослушиваний',  // E = C * CR1
+          'Прогноз добавлений',     // F = C * CR1 * CR2
+          'Прогноз ставок',         // G = D / F
+          'CPM',                    // H
+          'CR1',                    // I
+          'CR2'                     // J
+        ];
+
+        // Insert "Запуск" before "Название группы" within original columns
+        const originalHeaders = srcHeaders.map(h => (h ?? ''));
+        const originalWithLaunch = [];
+        for (let i = 1; i <= originalHeaders.length; i++) {
+          if (i === groupNameCol) originalWithLaunch.push('Запуск');
+          originalWithLaunch.push(originalHeaders[i-1]);
+        }
+
+        const outHeaders = PLAN_HEADERS.concat(originalWithLaunch);
+        outGroups.addRow(outHeaders);
+
+        // Header style
+        const hdr = outGroups.getRow(1);
+        hdr.font = { bold: true };
+        hdr.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        hdr.height = 22;
+
+        // Widths
+        const planWidths = [18, 14, 20, 14, 20, 18, 14, 10, 10, 10];
+        for (let i = 1; i <= PLAN_HEADERS.length; i++) outGroups.getColumn(i).width = planWidths[i-1] || 14;
+        for (let i = PLAN_HEADERS.length + 1; i <= outHeaders.length; i++) outGroups.getColumn(i).width = 18;
+
+        // Helper col->letter (1-based)
+        function colToLetter(col) {
+          let temp = col, letter = '';
+          while (temp > 0) {
+            let mod = (temp - 1) % 26;
+            letter = String.fromCharCode(65 + mod) + letter;
+            temp = Math.floor((temp - mod) / 26);
+          }
+          return letter;
+        }
+
+        const planOffset = PLAN_HEADERS.length; // 10
+
+        // Where original VK column lands in output (after inserting "Запуск")
+        function outColForOriginal(originalIndex1Based) {
+          const extra = (originalIndex1Based >= groupNameCol) ? 1 : 0;
+          return planOffset + originalIndex1Based + extra;
+        }
+
+        const outSpentCol = outColForOriginal(spentCol);
+        const outImprCol  = outColForOriginal(imprCol);
+        const outStartCol = outColForOriginal(startCol);
+        const outAddCol   = outColForOriginal(addCol);
+        const outCpaCol   = cpaCol ? outColForOriginal(cpaCol) : null;
+
+        const outLaunchCol = planOffset + groupNameCol; // inserted "Запуск" column position (1-based)
+
+        const lastInRow = Math.max(2, inWs.rowCount || 2);
+        log('Копирую строки и проставляю формулы…');
+
+        // Collect rows first to allow ranking (CR1 desc, then CR2 desc)
+        const rowsToWrite = [];
+        for (let r = 2; r <= lastInRow; r++) {
+          const inRow = inWs.getRow(r);
+          const values = inRow.values || [];
+          const isMeaningful = (v) => {
+            if (v === null || v === undefined) return false;
+            if (typeof v === 'object') {
+              if (v && 'result' in v) v = v.result;
+              else if (v && 'text' in v) v = v.text;
+              else return true;
+            }
+            const s = String(v).replace(/\u00A0/g, ' ').trim(); // NBSP -> space
+            return s !== '';
+          };
+          const hasAny = values.some((v, idx) => idx > 0 && isMeaningful(v));
+          if (!hasAny) continue;
+
+          // Pull raw numbers for ranking
+          const spentV = Number(inRow.getCell(spentCol).value || 0);
+          const imprV  = Number(inRow.getCell(imprCol).value  || 0);
+          const startV = Number(inRow.getCell(startCol).value || 0);
+          const addV   = Number(inRow.getCell(addCol).value   || 0);
+
+          // Rank keys with protection; blanks sort to bottom
+          let kCR1 = null;
+          let kCR2 = null;
+
+          if (imprV > 0 && startV > 0) kCR1 = startV / imprV;
+          else if (imprV > 0 && startV === 0) kCR1 = 0;
+
+          if (startV > 0 && addV > 0) kCR2 = addV / startV;
+          else if (startV > 0 && addV === 0) kCR2 = 0;
+
+          rowsToWrite.push({ r, kCR1, kCR2 });
+        }
+
+        rowsToWrite.sort((a, b) => {
+          const a1 = (a.kCR1 === null || a.kCR1 === undefined) ? -1 : a.kCR1;
+          const b1 = (b.kCR1 === null || b.kCR1 === undefined) ? -1 : b.kCR1;
+          if (b1 !== a1) return b1 - a1;
+
+          const a2 = (a.kCR2 === null || a.kCR2 === undefined) ? -1 : a.kCR2;
+          const b2 = (b.kCR2 === null || b.kCR2 === undefined) ? -1 : b.kCR2;
+          return b2 - a2;
+        });
+
+        // Write rows in ranked order
+        for (const item of rowsToWrite) {
+          const r = item.r;
+          const inRow = inWs.getRow(r);
+
+          // Output row values (0-based array for addRow)
+          const outRowVals = new Array(outHeaders.length).fill(null);
+
+          // Copy original values
+          for (let c = 1; c <= originalHeaders.length; c++) {
+            const destCol = outColForOriginal(c); // 1-based
+            outRowVals[destCol - 1] = inRow.getCell(c).value;
+          }
+
+          // Default launch checkbox = 0 (unchecked)
+          outRowVals[outLaunchCol - 1] = 0; // checkbox (0/1)
+
+          const outRow = outGroups.addRow(outRowVals);
+          const outR = outRow.number;
+
+          // Addresses
+          const audAddr    = `A${outR}`;
+          const imprFact   = `B${outR}`;
+          const potAddr    = `C${outR}`;
+          const budAddr    = `D${outR}`;
+          const fListen    = `E${outR}`;
+          const fAdds      = `F${outR}`;
+          const fBid       = `G${outR}`;
+          const cpmAddr    = `H${outR}`;
+          const cr1Addr    = `I${outR}`;
+          const cr2Addr    = `J${outR}`;
+
+          const spentAddr  = `${colToLetter(outSpentCol)}${outR}`;
+          const imprAddr   = `${colToLetter(outImprCol)}${outR}`;
+          const startAddr  = `${colToLetter(outStartCol)}${outR}`;
+          const addAddr    = `${colToLetter(outAddCol)}${outR}`;
+
+          // Protections: return "" on empty/0 denominators
+          const safeDiv = (num, den) => `IF(OR(${den}="",${den}=0),"",${num}/${den})`;
+
+          // Показы (факт) = ссылка на оригинальные "Показы"
+          outGroups.getCell(imprFact).value = { formula: `IF(${imprAddr}="","",${imprAddr})` };
+
+          // CPM = spent / impressions * 1000
+          outGroups.getCell(cpmAddr).value = { formula: `IF(OR(${imprAddr}="",${imprAddr}=0),"",IFERROR(${spentAddr}/${imprAddr}*1000,""))` };
+
+          // CR1 = start / impressions
+          outGroups.getCell(cr1Addr).value = { formula: `IFERROR(${safeDiv(startAddr, imprAddr)},"")` };
+
+          // CR2 = add / start
+          outGroups.getCell(cr2Addr).value = { formula: `IFERROR(${safeDiv(addAddr, startAddr)},"")` };
+
+          // Potential reach = audience/2 - shows_fact
+          outGroups.getCell(potAddr).value = { formula: `IF(OR(${audAddr}="",${imprFact}=""),"",${audAddr}/2-${imprFact})` };
+
+          // Budget = potential/1000 * CPM
+          outGroups.getCell(budAddr).value = { formula: `IF(OR(${potAddr}="",${cpmAddr}=""),"",${potAddr}/1000*${cpmAddr})` };
+
+          // Forecast listens = potential * CR1
+          outGroups.getCell(fListen).value = { formula: `IF(OR(${potAddr}="",${cr1Addr}=""),"",${potAddr}*${cr1Addr})` };
+
+          // Forecast adds = potential * CR1 * CR2
+          outGroups.getCell(fAdds).value = { formula: `IF(OR(${potAddr}="",${cr1Addr}="",${cr2Addr}=""),"",${potAddr}*${cr1Addr}*${cr2Addr})` };
+
+          // Forecast bid = budget / forecast adds
+          outGroups.getCell(fBid).value = { formula: `IF(OR(${budAddr}="",${fAdds}="",${fAdds}=0),"",${budAddr}/${fAdds})` };
+
+          // Data validation for launch checkbox (0/1)
+          const launchCell = outGroups.getCell(outLaunchCol, outR);
+          launchCell.dataValidation = { type: 'list', allowBlank: true, formulae: ["'__lists'!$A$1:$A$2"] };
+
+
+        }
+
+        const lastOutRow = outGroups.lastRow ? outGroups.lastRow.number : 2;
+
+        // Formats
+        // Checkbox-style column (0/1 shown as ☑/☐)
+        outGroups.getColumn(outLaunchCol).numFmt = '[=1]"☑";[=0]"☐";""';
+        outGroups.getColumn(outLaunchCol).alignment = { vertical: 'middle', horizontal: 'center' };
+
+        outGroups.getColumn(8).numFmt  = '0.00';   // CPM (H)
+        outGroups.getColumn(9).numFmt  = '0.00%';  // CR1 (I)
+        outGroups.getColumn(10).numFmt = '0.00%';  // CR2 (J)
+        if (outCpaCol) outGroups.getColumn(outCpaCol).numFmt = '0.00'; // Цена за добавление аудио, ₽
+        outGroups.getColumn(4).numFmt  = '#,##0.00'; // Budget
+        outGroups.getColumn(5).numFmt  = '#,##0';    // Forecast listens
+        outGroups.getColumn(6).numFmt  = '#,##0';    // Forecast adds
+        outGroups.getColumn(7).numFmt  = '#,##0.00'; // Forecast bid
+        outGroups.getColumn(3).numFmt  = '#,##0';    // Potential
+        outGroups.getColumn(2).numFmt  = '#,##0';    // Shows fact
+        outGroups.getColumn(1).numFmt  = '#,##0';    // Audience
+
+        // Conditional formatting: красный ТЕКСТ (без заливки)
+// CPM: красный, если меньше среднего по столбцу
+// CR1/CR2: красный, если больше среднего по столбцу
+// Цена за добавление аудио, ₽: красный, если меньше среднего по столбцу (если колонка найдена)
+
+const fontRed = { color: { argb: 'FFFF2D2D' } }; // заметный красный
+function addCFText(colIndex, ruleFormula) {
+  const colLetter = colToLetter(colIndex);
+  const ref = `${colLetter}2:${colLetter}${lastOutRow}`;
+  outGroups.addConditionalFormatting({
+    ref,
+    rules: [{
+      type: 'expression',
+      formulae: [ruleFormula],
+      style: { font: fontRed }
+    }]
+  });
+}
+
+addCFText(8,  `AND(H2<>"",H2<AVERAGE($H$2:$H$${lastOutRow}))`);     // CPM
+addCFText(9,  `AND(I2<>"",I2>AVERAGE($I$2:$I$${lastOutRow}))`);     // CR1
+addCFText(10, `AND(J2<>"",J2>AVERAGE($J$2:$J$${lastOutRow}))`);     // CR2
+
+if (outCpaCol) {
+  const cpaL = colToLetter(outCpaCol);
+  addCFText(outCpaCol, `AND(${cpaL}2<>"",${cpaL}2<AVERAGE($${cpaL}$2:$${cpaL}$${lastOutRow}))`);
+} else {
+  log('Колонка "Цена за добавление аудио, ₽" не найдена — условное форматирование для неё пропущено.');
+}
+        // Borders + basic row styling (только в пределах фактических строк)
+        const border = {
+          top:    { style: 'thin', color: { argb: '33FFFFFF' } },
+          left:   { style: 'thin', color: { argb: '33FFFFFF' } },
+          bottom: { style: 'thin', color: { argb: '33FFFFFF' } },
+          right:  { style: 'thin', color: { argb: '33FFFFFF' } }
+        };
+
+        for (let rr = 1; rr <= lastOutRow; rr++) {
+          const row = outGroups.getRow(rr);
+          row.eachCell({ includeEmpty: true }, (cell) => { cell.border = border; });
+        }
+
+
+        // ---- Sheet 2: "Прогноз" ----
+        log('Создаю лист "Прогноз"…');
+        const outForecast = outWb.addWorksheet('Прогноз', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+        outForecast.addRow(['Метрика', 'Значение']);
+        const hdr2 = outForecast.getRow(1);
+        hdr2.font = { bold: true };
+        hdr2.alignment = { vertical: 'middle', horizontal: 'center' };
+        outForecast.getColumn(1).width = 28;
+        outForecast.getColumn(2).width = 22;
+
+        // Ranges in "Группы"
+        const gName = 'Группы';
+        const launchColLetter = colToLetter(outLaunchCol);
+        const launchRange = `'${gName}'!$${launchColLetter}$2:$${launchColLetter}$${lastOutRow}`;
+
+        const sumIf = (sumColLetter) =>
+          `SUMIF(${launchRange},1,'${gName}'!$${sumColLetter}$2:$${sumColLetter}$${lastOutRow})`;
+
+        // Rows
+        const metrics = [
+          ['Требуется бюджет',      sumIf('D')],
+          ['Потенциальный охват',   sumIf('C')],
+          ['Прогноз прослушиваний', sumIf('E')],
+          ['Прогноз добавлений',    sumIf('F')],
+          ['Прогноз ставок',        ''],
+          ['Прогноз CPM',           ''],
+          ['Прогноз CR1',           ''],
+          ['Прогноз CR2',           ''],
+        ];
+
+        for (const [label, formula] of metrics) {
+          const rr = outForecast.addRow([label, null]);
+          const rnum = rr.number;
+          if (formula) outForecast.getCell(`B${rnum}`).value = { formula: `IFERROR(${formula},"")` };
+        }
+
+        // References in forecast sheet
+        const BUD = 'B2', POT = 'B3', LIS = 'B4', ADS = 'B5';
+
+        outForecast.getCell('B6').value = { formula: `IF(OR(${ADS}="",${ADS}=0,${BUD}=""),"",${BUD}/${ADS})` };
+        outForecast.getCell('B7').value = { formula: `IF(OR(${POT}="",${POT}=0,${BUD}=""),"",${BUD}/${POT}*1000)` };
+        outForecast.getCell('B8').value = { formula: `IF(OR(${POT}="",${POT}=0,${LIS}=""),"",${LIS}/${POT})` };
+        outForecast.getCell('B9').value = { formula: `IF(OR(${LIS}="",${LIS}=0,${ADS}=""),"",${ADS}/${LIS})` };
+
+        // Formats on forecast sheet
+        outForecast.getCell('B2').numFmt = '#,##0.00';
+        outForecast.getCell('B3').numFmt = '#,##0';
+        outForecast.getCell('B4').numFmt = '#,##0';
+        outForecast.getCell('B5').numFmt = '#,##0';
+        outForecast.getCell('B6').numFmt = '#,##0.00';
+        outForecast.getCell('B7').numFmt = '0.00';
+        outForecast.getCell('B8').numFmt = '0.00%';
+        outForecast.getCell('B9').numFmt = '0.00%';
+
+        // Borders on forecast
+        for (let r = 1; r <= 9; r++) {
+          outForecast.getRow(r).eachCell({ includeEmpty: true }, (cell) => { cell.border = border; });
+        }
+
+        log('Готово. Собираю файл…');
+        const outBuf = await outWb.xlsx.writeBuffer();
+        saveAs(
+          new Blob([outBuf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+          outName
+        );
+        log('Скачивание началось: ' + outName);
+
+      } catch (err) {
+        console.error(err);
+        log('Ошибка: ' + (err && err.message ? err.message : String(err)));
+        alert(err && err.message ? err.message : String(err));
+      } finally {
+        showOverlay(false);
+      }
+    });
+
+    function showOverlay(on) {
+      $overlay.style.display = on ? 'flex' : 'none';
+      $run.disabled = on || !$file.files || !$file.files[0];
+      $file.disabled = !!on;
+    }
+    function log(msg) { $log.textContent += (msg + '\\n'); }
+  </script>
 </body>
 </html>
