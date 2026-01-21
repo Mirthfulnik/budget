@@ -1715,8 +1715,10 @@ function renderSubcategoryDashboard(curOps){
     .slice(0,10);
 
   // chart
-  const canvas = $("#subcat-chart");
-  if (canvas) drawSubcategoryChart(canvas, rows);
+  const subCanvas = document.getElementById("subcat-chart");
+if (subCanvas && subCanvas.getContext) {
+  // drawSubcategoryChart(subCanvas, rows); // отключено: оставляем только список
+}
 
   const totalVal = sum(rows.map(r=>Number(r.val||0)));
   const maxVal = Math.max(0, ...rows.map(r=>Number(r.val||0)));
