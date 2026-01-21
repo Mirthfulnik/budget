@@ -33,7 +33,13 @@ const state = {
   balanceByCurrency: null, // optional from server
   period: { kind:"week", from:null, to:null },
   ui: {
-    dashSubcatCategoryId: "" // выбранная категория для графика подкатегорий
+    dashSubcatCategoryId: "", // выбранная категория для графика подкатегорий
+    barModel: null,
+    pieExpenseModel: null,
+    pieIncomeModel: null,
+    chartsInited: false,
+    barPickIdx: null,
+    piePickKey: ""
   },
   lastBootstrapAt: null
 };
@@ -1003,6 +1009,9 @@ function renderDashboard(){
   drawPie($("#pie-expense"), curOps.filter(o=>o.type==="expense"), "expense");
   drawPie($("#pie-income"), curOps.filter(o=>o.type==="income"), "income");
 
+  initChartInteractivityOnce();
+  renderMobileDashboardPickers();
+
   renderTopCategories(curOps);
   renderSubcategoryDashboard(curOps);
   renderCurrencyStructure();
@@ -1134,18 +1143,29 @@ function drawBarChart(canvas, from, to, ops){
   const barW = Math.max(6, groupW * 0.28);
   const gap = groupW * 0.12;
 
+  const hit = []; // интерактивные зоны для tooltip/выбора
+
   for (let i=0;i<n;i++){
     const x0 = pad + i*groupW + groupW/2;
     const incH = (data[i].income / maxVal) * (chartH-10);
     const expH = (data[i].expense / maxVal) * (chartH-10);
 
+
     // income bar
     ctx.fillStyle = "rgba(65,211,141,.85)";
-    ctx.fillRect(x0 - barW - gap/2, pad+chartH - incH, barW, incH);
+    const incX = x0 - barW - gap/2;
+    const incY = pad+chartH - incH;
+    ctx.fillRect(incX, incY, barW, incH);
 
     // expense bar
     ctx.fillStyle = "rgba(255,91,110,.85)";
-    ctx.fillRect(x0 + gap/2, pad+chartH - expH, barW, expH);
+    const expX = x0 + gap/2;
+    const expY = pad+chartH - expH;
+    ctx.fillRect(expX, expY, barW, expH);
+
+    // hit zones
+    hit.push({kind:"income", idx:i, x:incX, y:incY, w:barW, h:incH, label:data[i].label, value:data[i].income, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+    hit.push({kind:"expense", idx:i, x:expX, y:expY, w:barW, h:expH, label:data[i].label, value:data[i].expense, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
 
     // labels
     ctx.fillStyle = "rgba(255,255,255,.70)";
@@ -1161,6 +1181,16 @@ function drawBarChart(canvas, from, to, ops){
   ctx.fillText("Доходы", pad, 16);
   ctx.fillStyle = "rgba(255,91,110,.9)";
   ctx.fillText("Расходы", pad+72, 16);
+
+  // сохраняем модель для tooltip/моб.селекта
+  state.ui.barModel = {
+    bucket,
+    from: new Date(from),
+    to: new Date(to),
+    buckets: data.map(x=>({label:x.label, income:x.income, expense:x.expense, balance:(x.income-x.expense)})),
+    hit
+  };
+  return state.ui.barModel;
 }
 
 function drawPie(canvas, ops, kind){
@@ -1199,6 +1229,8 @@ function drawPie(canvas, ops, kind){
     "rgba(173,140,255,.85)","rgba(255,145,92,.85)","rgba(120,220,255,.85)"
   ];
 
+  const hit = []; // сектора для tooltip/выбора
+
   for (let i=0;i<entries.length;i++){
     const frac = entries[i].val/total;
     const a2 = ang + frac*2*Math.PI;
@@ -1208,6 +1240,21 @@ function drawPie(canvas, ops, kind){
     ctx.closePath();
     ctx.fillStyle = palette[i % palette.length];
     ctx.fill();
+
+    hit.push({
+      idx:i,
+      cid: entries[i].cid,
+      name: entries[i].name,
+      val: entries[i].val,
+      pct: (entries[i].val/total)*100,
+      a1: ang,
+      a2: a2,
+      cx, cy,
+      rOuter: r,
+      rInner: r*0.55,
+      color: palette[i % palette.length]
+    });
+
     ang = a2;
   }
 
@@ -1229,6 +1276,242 @@ function drawPie(canvas, ops, kind){
     ctx.fillStyle = "rgba(255,255,255,.78)";
     ctx.fillText(`${top[i].name} — ${pct}%`, lx+14, ly+9 + i*18);
   }
+
+  // сохраняем модель
+  const model = {
+    kind,
+    total,
+    entries: entries.map(e=>({cid:e.cid, name:e.name, val:e.val, pct:(e.val/total)*100})),
+    hit
+  };
+  if (kind==="expense") state.ui.pieExpenseModel = model;
+  if (kind==="income") state.ui.pieIncomeModel = model;
+  return model;
+
+}
+
+
+/**
+ * ============================
+ *  DASHBOARD CHART INTERACTIVITY
+ * ============================
+ */
+function initChartInteractivityOnce(){
+  if (state.ui.chartsInited) return;
+  const tip = $("#chartTip");
+  if (!tip) { state.ui.chartsInited = true; return; }
+
+  const showTip = (html, clientX, clientY)=>{
+    tip.innerHTML = html;
+    tip.style.display = "block";
+    // keep on screen
+    const pad = 10;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = tip.getBoundingClientRect();
+    let x = clientX + 12;
+    let y = clientY + 12;
+    if (x + rect.width + pad > vw) x = Math.max(pad, clientX - rect.width - 12);
+    if (y + rect.height + pad > vh) y = Math.max(pad, clientY - rect.height - 12);
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+  };
+  const hideTip = ()=>{
+    tip.style.display = "none";
+  };
+
+  const pickBarHit = (mx, my)=>{
+    const model = state.ui.barModel;
+    if (!model || !model.hit) return null;
+    for (let i=0;i<model.hit.length;i++){
+      const r = model.hit[i];
+      if (mx>=r.x && mx<=r.x+r.w && my>=r.y && my<=r.y+r.h){
+        return r;
+      }
+    }
+    return null;
+  };
+
+  const norm2pi = (a)=>{
+    const two = Math.PI*2;
+    let x = a % two;
+    if (x<0) x += two;
+    return x;
+  };
+  const angleIn = (a, a1, a2)=>{
+    const A = norm2pi(a), A1 = norm2pi(a1), A2 = norm2pi(a2);
+    if (A1<=A2) return A>=A1 && A<=A2;
+    return (A>=A1) || (A<=A2);
+  };
+  const pickPieHit = (model, mx, my)=>{
+    if (!model || !model.hit || !model.hit.length) return null;
+    // all sectors share same center/r (we stored per sector too)
+    const any = model.hit[0];
+    const dx = mx - any.cx;
+    const dy = my - any.cy;
+    const rr = Math.sqrt(dx*dx + dy*dy);
+    if (rr < any.rInner || rr > any.rOuter) return null;
+    const ang = Math.atan2(dy, dx);
+    for (let i=0;i<model.hit.length;i++){
+      const s = model.hit[i];
+      if (angleIn(ang, s.a1, s.a2)) return s;
+    }
+    return null;
+  };
+
+  const bindCanvas = (canvas, onMove)=>{
+    if (!canvas) return;
+    canvas.addEventListener("mousemove", (e)=>{
+      const r = canvas.getBoundingClientRect();
+      const mx = e.clientX - r.left;
+      const my = e.clientY - r.top;
+      onMove(e, mx, my);
+    });
+    canvas.addEventListener("mouseleave", hideTip);
+  };
+
+  // bar chart
+  bindCanvas($("#bar-chart"), (e, mx, my)=>{
+    const h = pickBarHit(mx, my);
+    if (!h){ hideTip(); return; }
+    const title = `<div style="font-weight:900; margin-bottom:4px">${esc(h.label)}</div>`;
+    const type = h.kind==="income" ? "Доход" : "Расход";
+    const line1 = `<div>${esc(type)}: <span style="font-weight:900">${ruMoney(h.value)}</span></div>`;
+    const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">Баланс: ${ruMoney(h.balance)}</div>`;
+    showTip(title + line1 + line2, e.clientX, e.clientY);
+  });
+
+  // pie expense
+  bindCanvas($("#pie-expense"), (e, mx, my)=>{
+    const s = pickPieHit(state.ui.pieExpenseModel, mx, my);
+    if (!s){ hideTip(); return; }
+    const pct = Math.round(s.pct);
+    const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
+      `<div>Расход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
+      `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от расходов</div>`;
+    showTip(html, e.clientX, e.clientY);
+  });
+
+  // pie income
+  bindCanvas($("#pie-income"), (e, mx, my)=>{
+    const s = pickPieHit(state.ui.pieIncomeModel, mx, my);
+    if (!s){ hideTip(); return; }
+    const pct = Math.round(s.pct);
+    const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
+      `<div>Доход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
+      `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от доходов</div>`;
+    showTip(html, e.clientX, e.clientY);
+  });
+
+  state.ui.chartsInited = true;
+}
+
+function renderMobileDashboardPickers(){
+  renderBarPicker();
+  renderPiePicker();
+}
+
+function renderBarPicker(){
+  const sel = $("#dash-bar-pick");
+  const box = $("#dash-bar-details");
+  const model = state.ui.barModel;
+  if (!sel || !box || !model || !model.buckets) return;
+
+  const prev = (state.ui.barPickIdx!=null) ? String(state.ui.barPickIdx) : "";
+  sel.innerHTML = model.buckets.map((b, idx)=>`<option value="${idx}">${esc(b.label)}</option>`).join("");
+
+  // default: last bucket (обычно ближе к текущему)
+  let idx = model.buckets.length ? (model.buckets.length-1) : 0;
+  if (prev && Number.isFinite(Number(prev))) idx = Math.min(model.buckets.length-1, Math.max(0, Number(prev)));
+  sel.value = String(idx);
+  state.ui.barPickIdx = idx;
+
+  renderBarDetails(idx);
+
+  if (!sel.dataset.bound){
+    sel.addEventListener("change", ()=>{
+      const i = Number(sel.value||0);
+      state.ui.barPickIdx = i;
+      renderBarDetails(i);
+    });
+    sel.dataset.bound = "1";
+  }
+}
+
+function renderBarDetails(idx){
+  const box = $("#dash-bar-details");
+  const model = state.ui.barModel;
+  if (!box || !model || !model.buckets || !model.buckets[idx]) return;
+  const b = model.buckets[idx];
+  box.innerHTML = `
+    <div class="kpiItem"><div class="k">Доходы</div><div class="v">${ruMoney(b.income)}</div></div>
+    <div class="kpiItem"><div class="k">Расходы</div><div class="v">${ruMoney(b.expense)}</div></div>
+    <div class="kpiItem"><div class="k">Баланс</div><div class="v">${ruMoney(b.balance)}</div></div>
+  `;
+}
+
+function renderPiePicker(){
+  const sel = $("#dash-pie-pick");
+  const box = $("#dash-pie-details");
+  const mE = state.ui.pieExpenseModel;
+  const mI = state.ui.pieIncomeModel;
+  if (!sel || !box) return;
+
+  const opts = [];
+  if (mE && mE.entries){
+    for (const e of mE.entries){
+      opts.push({key:`expense|${e.cid}`, text:`Расходы: ${e.name}`, kind:"expense", entry:e});
+    }
+  }
+  if (mI && mI.entries){
+    for (const e of mI.entries){
+      opts.push({key:`income|${e.cid}`, text:`Доходы: ${e.name}`, kind:"income", entry:e});
+    }
+  }
+
+  if (!opts.length){
+    sel.innerHTML = `<option value="">Нет данных</option>`;
+    box.innerHTML = `<div class="muted">Нет данных для выбранного периода.</div>`;
+    return;
+  }
+
+  sel.innerHTML = opts.map(o=>`<option value="${esc(o.key)}">${esc(o.text)}</option>`).join("");
+
+  // default: сохраняем прошлый выбор, иначе самый крупный расход/доход (первый в списке каждой модели — уже отсортирован)
+  const prevKey = state.ui.piePickKey || "";
+  let key = prevKey && opts.some(o=>o.key===prevKey) ? prevKey : opts[0].key;
+  sel.value = key;
+  state.ui.piePickKey = key;
+
+  renderPieDetails(key);
+
+  if (!sel.dataset.bound){
+    sel.addEventListener("change", ()=>{
+      const k = String(sel.value||"");
+      state.ui.piePickKey = k;
+      renderPieDetails(k);
+    });
+    sel.dataset.bound = "1";
+  }
+}
+
+function renderPieDetails(key){
+  const box = $("#dash-pie-details");
+  if (!box || !key) return;
+  const parts = key.split("|");
+  const kind = parts[0];
+  const cid = parts[1] ?? "";
+  const model = (kind==="expense") ? state.ui.pieExpenseModel : state.ui.pieIncomeModel;
+  if (!model || !model.entries) return;
+  const e = model.entries.find(x=>String(x.cid)===String(cid));
+  if (!e) return;
+
+  const title = (kind==="expense") ? "Расход" : "Доход";
+  const pct = Math.round(e.pct);
+  box.innerHTML = `
+    <div class="kpiItem"><div class="k">Категория</div><div class="v">${esc(e.name)}</div></div>
+    <div class="kpiItem"><div class="k">${esc(title)}</div><div class="v">${ruMoney(e.val)}</div></div>
+    <div class="kpiItem"><div class="k">Доля</div><div class="v">${pct}%</div></div>
+  `;
 }
 
 function drawSubcategoryChart(canvas, rows){
