@@ -166,12 +166,12 @@
             <span class="pill">круг</span>
           </div>
           <div class="row">
-            <div style="flex:1 1 300px">
+            <div class="pieCol" style="flex:1 1 300px">
               <div class="sectionTitle">Расходы</div>
               <div class="canvasWrap"><canvas id="pie-expense"></canvas></div>
               <div class="pieLegend" id="pie-expense-legend"></div>
             </div>
-            <div style="flex:1 1 300px">
+            <div class="pieCol" style="flex:1 1 300px">
               <div class="sectionTitle">Доходы</div>
               <div class="canvasWrap"><canvas id="pie-income"></canvas></div>
               <div class="pieLegend" id="pie-income-legend"></div>
@@ -208,6 +208,25 @@
           <div class="hint">Показывает остатки по счетам, сгруппированные по валютам (расчёт по операциям в выбранной валюте).</div>
         </div>
       </div>
+
+      <div class="grid cols2">
+        <div class="card">
+          <div class="cardTitle">
+            <h2>ТОП категорий расходов</h2>
+            <span class="pill">топ-5</span>
+          </div>
+          <div id="top-expense" class="list"></div>
+        </div>
+
+        <div class="card">
+          <div class="cardTitle">
+            <h2>ТОП категорий доходов</h2>
+            <span class="pill">топ-5</span>
+          </div>
+          <div id="top-income" class="list"></div>
+        </div>
+      </div>
+
     </section>
 
     <!-- GOALS -->
