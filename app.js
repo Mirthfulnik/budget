@@ -1132,15 +1132,17 @@ function drawBarChart(canvas, from, to, ops){
   const data = buckets.map(b=>({label:b.key, ...map.get(b.key)}));
   const maxVal = Math.max(1, ...data.map(x=>Math.max(x.income, x.expense)));
   const pad = 12;
-  const chartH = h - 40;
+  const topPad = 18;
+  const rotateLabels = (state.period.kind==="month" || state.period.kind==="year" || state.period.kind==="custom");
+  const bottomPad = rotateLabels ? 44 : 28;
   const chartW = w - pad*2;
-
-  // axis baseline
+  const chartH = h - topPad - bottomPad;
+// axis baseline
   ctx.strokeStyle = "rgba(255,255,255,.10)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(pad, pad+chartH);
-  ctx.lineTo(pad+chartW, pad+chartH);
+  ctx.moveTo(pad, topPad+chartH);
+  ctx.lineTo(pad+chartW, topPad+chartH);
   ctx.stroke();
 
   const n = data.length;
@@ -1159,13 +1161,13 @@ function drawBarChart(canvas, from, to, ops){
     // income bar
     ctx.fillStyle = "rgba(65,211,141,.85)";
     const incX = x0 - barW - gap/2;
-    const incY = pad+chartH - incH;
+    const incY = topPad+chartH - incH;
     ctx.fillRect(incX, incY, barW, incH);
 
     // expense bar
     ctx.fillStyle = "rgba(255,91,110,.85)";
     const expX = x0 + gap/2;
-    const expY = pad+chartH - expH;
+    const expY = topPad+chartH - expH;
     ctx.fillRect(expX, expY, barW, expH);
 
     // hit zones
@@ -1175,13 +1177,12 @@ function drawBarChart(canvas, from, to, ops){
     // labels
     ctx.fillStyle = "rgba(255,255,255,.70)";
     ctx.font = "12px Inter, system-ui, sans-serif";
-    const rotateLabels = (state.period.kind==="month" || state.period.kind==="year" || state.period.kind==="custom");
     if (!rotateLabels){
       ctx.textAlign = "center";
-      ctx.fillText(data[i].label, x0, pad+chartH + 18);
+      ctx.fillText(data[i].label, x0, topPad+chartH + 18);
     } else {
       ctx.save();
-      ctx.translate(x0, pad+chartH + 24);
+      ctx.translate(x0, topPad+chartH + 24);
       ctx.rotate(-Math.PI/2);
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
@@ -1237,7 +1238,7 @@ function drawPie(canvas, ops, kind){
   }
 
   const total = sum(entries.map(e=>e.val));
-  const cx = w*0.35, cy = h*0.52;
+  const cx = w*0.5, cy = h*0.5;
   const r = Math.min(w,h)*0.32;
 
   let ang = -Math.PI/2;
@@ -1630,6 +1631,9 @@ ctx.fillRect(bx, y, bw, barH);
 }
 
 function renderTopCategories(curOps){
+  const elE = $("#top-expense");
+  const elI = $("#top-income");
+  if (!elE || !elI) return;
   const exp = curOps.filter(o=>o.type==="expense");
   const inc = curOps.filter(o=>o.type==="income");
   const top5 = (ops)=>{
@@ -1647,7 +1651,7 @@ function renderTopCategories(curOps){
   const topE = top5(exp);
   const topI = top5(inc);
 
-  $("#top-expense").innerHTML = topE.length ? topE.map((x,i)=>`
+  elE.innerHTML = topE.length ? topE.map((x,i)=>`
     <div class="item">
       <div class="left">
         <div class="t">${i+1}. ${esc(x.name)}</div>
@@ -1657,7 +1661,7 @@ function renderTopCategories(curOps){
     </div>
   `).join("") : `<div class="muted">Нет расходов в выбранном периоде.</div>`;
 
-  $("#top-income").innerHTML = topI.length ? topI.map((x,i)=>`
+  elI.innerHTML = topI.length ? topI.map((x,i)=>`
     <div class="item">
       <div class="left">
         <div class="t">${i+1}. ${esc(x.name)}</div>
@@ -1710,7 +1714,9 @@ function renderSubcategoryDashboard(curOps){
     .sort((a,b)=>b.val-a.val)
     .slice(0,10);
 
-
+  // chart
+  const canvas = $("#subcat-chart");
+  if (canvas) drawSubcategoryChart(canvas, rows);
 
   const totalVal = sum(rows.map(r=>Number(r.val||0)));
   const maxVal = Math.max(0, ...rows.map(r=>Number(r.val||0)));
@@ -1745,10 +1751,13 @@ function renderCurrencyStructure(){
     return;
   }
 
+  // считаем остаток по каждому счёту: стартовый баланс счёта + доходы - расходы (переводы пока не учитываем)
+  // если у счёта нет начального баланса, считаем от 0
+
   // считаем "остаток" по операциям: доходы - расходы по каждому счёту (переводы пока не учитываем)
   const balByAcc = {};
   for (const a of state.accounts){
-    balByAcc[String(a.id)] = 0;
+    balByAcc[String(a.id)] = Number(a.balance ?? a.startBalance ?? 0);
   }
   for (const o of state.operations){
     const accId = String(o.accountId || "");
