@@ -435,17 +435,22 @@ function updateOpCurrencyBadge(){
 }
 
 function renderSelects(){
-    const prefs = getLastOpPrefs_();
-  if (prefs?.type) $("#op-type").value = prefs.type;
+  const prefs = getLastOpPrefs_();
 
-  const type = $("#op-type").value;
+  const type = $("#op-type")?.value || (prefs?.type || "expense");
+
+  if ($("#op-type") && !$("#op-type").value) $("#op-type").value = type;
 
   // categories by type
   const cats = state.categories.filter(c => (c.type===type) || (type==="transfer" && c.type==="transfer"));
   const catSel = $("#op-category");
-  catSel.innerHTML = cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("") || `<option value="">— нет категорий —</option>`;
-  if (prefs?.categoryId) catSel.value = prefs.categoryId;
+  catSel.innerHTML = cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")
+    || `<option value="">— нет категорий —</option>`;
 
+  if (prefs?.categoryId && cats.some(c=>String(c.id)===String(prefs.categoryId))){
+    catSel.value = prefs.categoryId;
+  }
+  
   // accounts
   const accSel = $("#op-account");
   accSel.innerHTML = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.currency||'RUB')}</option>`).join("");
@@ -491,9 +496,9 @@ function renderSubcategorySelect(){
 }
 
 $("#op-type").addEventListener("change", ()=>{
+  saveLastOpPrefs_();     
   renderSelects();
   renderSubcategorySelect();
-  saveLastOpPrefs_();
 });
 $("#op-category").addEventListener("change", renderSubcategorySelect);
 renderSubcategorySelect();
