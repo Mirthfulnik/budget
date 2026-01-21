@@ -517,6 +517,15 @@
   align-items:center;
   text-align:center;
 }
+/* ВАЖНО: canvas должен иметь реальную ширину, иначе drawPie() рисует в 0px */
+.pieCol .canvasWrap{
+  width: 100%;
+  max-width: 520px;   /* можно 480/560 — на вкус */
+}
+.pieCol .canvasWrap canvas{
+  width: 100%;
+  display:block;
+}
 .pieCol .sectionTitle{
   width:100%;
   text-align:center;
