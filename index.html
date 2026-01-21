@@ -157,13 +157,7 @@
             <span class="pill">столбцы</span>
           </div>
           <div class="canvasWrap"><canvas id="bar-chart"></canvas></div>
-          <div class="dashMobileControls">
-            <div class="row">
-              <div class="field" style="flex:1 1 260px">
-                <label>Выбери отрезок</label>
-                <select id="dash-bar-pick"></select>
-              </div>
-            </div>
+</div>
             <div id="dash-bar-details" class="kpi mini dashDetails"></div>
           </div>
           <div class="hint">Сравнение — текущий период vs предыдущий аналогичный.</div>
@@ -178,20 +172,15 @@
             <div style="flex:1 1 300px">
               <div class="sectionTitle">Расходы</div>
               <div class="canvasWrap"><canvas id="pie-expense"></canvas></div>
+              <div class="pieLegend" id="pie-expense-legend"></div>
             </div>
             <div style="flex:1 1 300px">
               <div class="sectionTitle">Доходы</div>
               <div class="canvasWrap"><canvas id="pie-income"></canvas></div>
+              <div class="pieLegend" id="pie-income-legend"></div>
             </div>
           </div>
-        
-          <div class="dashMobileControls">
-            <div class="row">
-              <div class="field" style="flex:1 1 260px">
-                <label>Выбери категорию</label>
-                <select id="dash-pie-pick"></select>
-              </div>
-            </div>
+</div>
             <div id="dash-pie-details" class="kpi mini dashDetails"></div>
           </div></div>
       </div>
@@ -209,7 +198,7 @@
               <select id="dash-subcat-category"></select>
             </div>
           </div>
-          <div class="canvasWrap"><canvas id="subcat-chart"></canvas></div>
+          <div class="canvasWrap subcatWrap"><canvas id="subcat-chart"></canvas></div>
           <div class="hint">Показывает распределение по подкатегориям для выбранной категории в текущем периоде.</div>
           <div class="hr"></div>
           <div id="subcat-list" class="list"></div>
