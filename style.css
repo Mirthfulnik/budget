@@ -282,15 +282,52 @@
 
     canvas{width:100%; height:260px; display:block}
     .canvasWrap{height:260px}
-    @media (max-width: 420px){
+    
+.subcatWrap{height:160px}
+.subcatWrap canvas{height:160px}
+@media (max-width: 420px){
       canvas{height:240px}
       .canvasWrap{height:240px}
+      .subcatWrap{height:130px}
+      .subcatWrap canvas{height:130px}
+
       .nav .btnNav.sync{flex:0 0 95px}
     }
 
     
 
-    /* chart tooltips + mobile pickers */
+    
+/* pie HTML legend (wrap on mobile) */
+.pieLegend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 10px;
+  margin-top:10px;
+  align-items:center;
+}
+.pieLegend .pieItem{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  max-width:100%;
+  cursor:pointer;
+  user-select:none;
+}
+.pieLegend .swatch{
+  width:10px;
+  height:10px;
+  border-radius:3px;
+  flex:0 0 10px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+}
+.pieLegend .label{
+  font-size:12px;
+  line-height:1.2;
+  color:rgba(255,255,255,.78);
+  word-break:break-word;
+}
+
+/* chart tooltips + mobile pickers */
     .chartTip{
       position: fixed;
       z-index: 90;
