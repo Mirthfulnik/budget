@@ -1175,11 +1175,23 @@ function drawBarChart(canvas, from, to, ops){
     // labels
     ctx.fillStyle = "rgba(255,255,255,.70)";
     ctx.font = "12px Inter, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(data[i].label, x0, pad+chartH + 18);
+    const rotateLabels = (state.period.kind==="month" || state.period.kind==="year" || state.period.kind==="custom");
+    if (!rotateLabels){
+      ctx.textAlign = "center";
+      ctx.fillText(data[i].label, x0, pad+chartH + 18);
+    } else {
+      ctx.save();
+      ctx.translate(x0, pad+chartH + 24);
+      ctx.rotate(-Math.PI/2);
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText(data[i].label, 0, 0);
+      ctx.restore();
+      ctx.textBaseline = "alphabetic";
+    }
   }
 
-  // legend
+// legend
   ctx.textAlign = "left";
   ctx.font = "12px Inter, system-ui, sans-serif";
   ctx.fillStyle = "rgba(65,211,141,.9)";
@@ -1248,6 +1260,7 @@ function drawPie(canvas, ops, kind){
 
     hit.push({
       idx:i,
+      color: palette[i % palette.length],
       cid: entries[i].cid,
       name: entries[i].name,
       val: entries[i].val,
@@ -1269,24 +1282,26 @@ function drawPie(canvas, ops, kind){
   ctx.fillStyle = "rgba(15,17,21,1)";
   ctx.fill();
 
-  // legend (top 5)
-  ctx.textAlign = "left";
-  ctx.font = "12px Inter, system-ui, sans-serif";
-  const lx = w*0.62, ly = h*0.22;
-  const top = entries.slice(0,5);
-  for (let i=0;i<top.length;i++){
-    const pct = Math.round((top[i].val/total)*100);
-    ctx.fillStyle = palette[i % palette.length];
-    ctx.fillRect(lx, ly + i*18, 10, 10);
-    ctx.fillStyle = "rgba(255,255,255,.78)";
-    ctx.fillText(`${top[i].name} — ${pct}%`, lx+14, ly+9 + i*18);
+  // legend (HTML, wraps on mobile)
+  const legendEl = document.getElementById(`pie-${kind}-legend`);
+  if (legendEl){
+    const maxItems = 18; // safety for very long lists
+    legendEl.innerHTML = entries.slice(0, maxItems).map((e, i)=>{
+      const pct = Math.round((e.val/total)*100);
+      const color = palette[i % palette.length];
+      // data-kind: expense|income
+      return `<div class="pieItem" data-kind="${esc(kind)}" data-idx="${i}" data-cid="${esc(e.cid)}" data-val="${e.val}" data-pct="${pct}" data-color="${esc(color)}">`+
+             `<span class="swatch" style="background:${esc(color)}"></span>`+
+             `<span class="label">${esc(e.name)} — ${pct}%</span>`+
+             `</div>`;
+    }).join("");
   }
 
-  // сохраняем модель
+// сохраняем модель
   const model = {
     kind,
     total,
-    entries: entries.map(e=>({cid:e.cid, name:e.name, val:e.val, pct:(e.val/total)*100})),
+    entries: entries.map((e,i)=>({cid:e.cid, name:e.name, val:e.val, pct:(e.val/total)*100, color: palette[i % palette.length]})),
     hit
   };
   if (kind==="expense") state.ui.pieExpenseModel = model;
@@ -1306,9 +1321,18 @@ function initChartInteractivityOnce(){
   const tip = $("#chartTip");
   if (!tip) { state.ui.chartsInited = true; return; }
 
-  const showTip = (html, clientX, clientY)=>{
+  const hoverOK = !!(window.matchMedia && window.matchMedia("(hover: hover)").matches);
+  let tipHideTimer = null;
+
+  const hideTip = ()=>{
+    tip.style.display = "none";
+    if (tipHideTimer){ clearTimeout(tipHideTimer); tipHideTimer = null; }
+  };
+
+  const showTip = (html, clientX, clientY, stickyMs)=>{
     tip.innerHTML = html;
     tip.style.display = "block";
+
     // keep on screen
     const pad = 10;
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -1319,9 +1343,11 @@ function initChartInteractivityOnce(){
     if (y + rect.height + pad > vh) y = Math.max(pad, clientY - rect.height - 12);
     tip.style.left = x + "px";
     tip.style.top = y + "px";
-  };
-  const hideTip = ()=>{
-    tip.style.display = "none";
+
+    if (tipHideTimer){ clearTimeout(tipHideTimer); tipHideTimer = null; }
+    if (stickyMs && stickyMs>0){
+      tipHideTimer = setTimeout(hideTip, stickyMs);
+    }
   };
 
   const pickBarHit = (mx, my)=>{
@@ -1365,49 +1391,82 @@ function initChartInteractivityOnce(){
 
   const bindCanvas = (canvas, onMove)=>{
     if (!canvas) return;
-    canvas.addEventListener("mousemove", (e)=>{
+
+    // Hover interactions (desktop)
+    if (hoverOK){
+      canvas.addEventListener("mousemove", (e)=>{
+        const r = canvas.getBoundingClientRect();
+        const mx = e.clientX - r.left;
+        const my = e.clientY - r.top;
+        onMove(e, mx, my, 0);
+      });
+      canvas.addEventListener("mouseleave", hideTip);
+    }
+
+    // Tap/click interactions (mobile + desktop)
+    canvas.addEventListener("pointerdown", (e)=>{
       const r = canvas.getBoundingClientRect();
       const mx = e.clientX - r.left;
       const my = e.clientY - r.top;
-      onMove(e, mx, my);
+      onMove(e, mx, my, 2500);
     });
-    canvas.addEventListener("mouseleave", hideTip);
   };
 
   // bar chart
-  bindCanvas($("#bar-chart"), (e, mx, my)=>{
+  bindCanvas($("#bar-chart"), (e, mx, my, stickyMs)=>{
     const h = pickBarHit(mx, my);
     if (!h){ hideTip(); return; }
     const title = `<div style="font-weight:900; margin-bottom:4px">${esc(h.label)}</div>`;
     const type = h.kind==="income" ? "Доход" : "Расход";
     const line1 = `<div>${esc(type)}: <span style="font-weight:900">${ruMoney(h.value)}</span></div>`;
     const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">Баланс: ${ruMoney(h.balance)}</div>`;
-    showTip(title + line1 + line2, e.clientX, e.clientY);
+    showTip(title + line1 + line2, e.clientX, e.clientY, stickyMs);
   });
 
   // pie expense
-  bindCanvas($("#pie-expense"), (e, mx, my)=>{
+  bindCanvas($("#pie-expense"), (e, mx, my, stickyMs)=>{
     const s = pickPieHit(state.ui.pieExpenseModel, mx, my);
     if (!s){ hideTip(); return; }
     const pct = Math.round(s.pct);
     const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
       `<div>Расход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
       `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от расходов</div>`;
-    showTip(html, e.clientX, e.clientY);
+    showTip(html, e.clientX, e.clientY, stickyMs);
   });
 
   // pie income
-  bindCanvas($("#pie-income"), (e, mx, my)=>{
+  bindCanvas($("#pie-income"), (e, mx, my, stickyMs)=>{
     const s = pickPieHit(state.ui.pieIncomeModel, mx, my);
     if (!s){ hideTip(); return; }
     const pct = Math.round(s.pct);
     const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
       `<div>Доход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
       `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от доходов</div>`;
-    showTip(html, e.clientX, e.clientY);
+    showTip(html, e.clientX, e.clientY, stickyMs);
   });
 
-  state.ui.chartsInited = true;
+  
+  // HTML legend clicks (for wrapped legend under pie charts)
+  const bindLegend = (el, kind)=>{
+    if (!el || el.dataset.bound) return;
+    el.dataset.bound = "1";
+    el.addEventListener("pointerdown", (e)=>{
+      const item = e.target.closest(".pieItem");
+      if (!item) return;
+      const name = item.querySelector(".label") ? item.querySelector(".label").textContent.split(" — ")[0] : "";
+      const val = Number(item.dataset.val||0);
+      const pct = Number(item.dataset.pct||0);
+      const isExpense = (item.dataset.kind==="expense");
+      const head = `<div style="font-weight:900; margin-bottom:4px">${esc(name||"")}</div>`;
+      const line1 = `<div>${isExpense ? "Расход" : "Доход"}: <span style="font-weight:900">${ruMoney(val)}</span></div>`;
+      const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">${Math.round(pct)}% от ${isExpense ? "расходов" : "доходов"}</div>`;
+      showTip(head + line1 + line2, e.clientX, e.clientY, 2500);
+    });
+  };
+  bindLegend(document.getElementById("pie-expense-legend"), "expense");
+  bindLegend(document.getElementById("pie-income-legend"), "income");
+
+state.ui.chartsInited = true;
 }
 
 function renderMobileDashboardPickers(){
