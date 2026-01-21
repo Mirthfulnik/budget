@@ -507,3 +507,27 @@
 .subrowMeta{color:var(--muted); font-size:12px; font-weight:800; flex-shrink:0}
 .subbar{height:10px; border-radius:999px; background: rgba(255,255,255,.06); overflow:hidden; border:1px solid rgba(255,255,255,.06)}
 .subbar > i{display:block; height:100%; width:0%; background: rgba(87,166,255,.85)}
+
+
+
+/* Dashboard: center pie charts + legends */
+.pieCol{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+.pieCol .sectionTitle{
+  width:100%;
+  text-align:center;
+  margin-left:0;
+  margin-right:0;
+}
+.pieLegend{
+  justify-content:center;
+}
+#pie-expense-legend, #pie-income-legend{
+  margin-bottom:14px; /* space before hint */
+}
+
+/* Dashboard: give bar chart a bit more visual bottom room (canvas still controlled in JS) */
