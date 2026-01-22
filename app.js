@@ -767,6 +767,10 @@ $("#btn-add-op").addEventListener("click", async ()=>{
   const currency = $("#op-currency")?.value || accCurrency(accountId);
   const date = $("#op-date").value;
   const comment = $("#op-comment").value || "";
+  const fromAccountId = $("#op-from-account")?.value || "";
+  const toAccountId   = $("#op-to-account")?.value || "";
+  const fxRate        = Number($("#op-fx-rate")?.value || 0);
+  const amountTo      = Number($("#op-amount-to")?.value || 0);
 
   if (!amount || amount<=0){
     toast("Проверь сумму", "Сумма должна быть больше 0", "warn", 2000);
@@ -779,6 +783,24 @@ $("#btn-add-op").addEventListener("click", async ()=>{
 
   try{
     toast("Операция", "Сохраняю…", "info", 0);
+    let payload;
+
+if (type === "transfer"){
+  if (!fromAccountId || !toAccountId || fromAccountId === toAccountId){
+    toast("Проверь счета", "Выбери разные счета «Откуда» и «Куда»", "warn", 2500);
+    return;
+  }
+  if (!fxRate || fxRate <= 0){
+    toast("Проверь курс", "Курс должен быть больше 0", "warn", 2500);
+    return;
+  }
+  const calcTo = amountTo > 0 ? amountTo : (amount * fxRate);
+
+  payload = { type, amount, fromAccountId, toAccountId, fxRate, amountTo: calcTo, date, comment };
+} else {
+  payload = { type, amount, categoryId, subcategoryId, accountId, currency, date, comment };
+}
+
     await apiPost("addOperation", { type, amount, categoryId, subcategoryId, accountId, currency, date, comment });
     $("#op-amount").value = "";
     $("#op-comment").value = "";
@@ -1795,6 +1817,16 @@ function renderCurrencyStructure(){
     if (t === "income") balByAcc[accId] += amt;
     else if (t === "expense") balByAcc[accId] -= amt;
   }
+  if (o.type === "transfer"){
+  const fromId = String(o.fromAccountId || o.accountId || "");
+  const toId = String(o.toAccountId || "");
+  const amt = Number(o.amount || 0);
+  const amtTo = Number(o.amountTo || 0);
+
+  if (fromId) balByAcc[fromId] = (balByAcc[fromId] || 0) - amt;
+  if (toId)   balByAcc[toId]   = (balByAcc[toId]   || 0) + amtTo;
+  return; // если это внутри forEach и ниже идут expense/income
+}
 
   const groups = {};
   for (const a of state.accounts){
