@@ -102,9 +102,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
  * ============================
  *  COLLAPSIBLE LISTS (UI)
  * ============================
- * Показываем первые 7 записей, остальные — по кнопке «Показать ещё / Свернуть»
+ * Показываем первые 3 записи, остальные — по кнопке «Показать ещё / Свернуть»
  */
-const COLLAPSE_LIMIT = 7;
+const COLLAPSE_LIMIT = 3;
 const collapseState = {}; // key: containerId -> boolean (expanded)
 
 function applyCollapsible(containerId, limit=COLLAPSE_LIMIT){
