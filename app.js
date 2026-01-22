@@ -418,6 +418,7 @@ function saveLastOpPrefs_(){
 
 function renderAll(){
   renderSelects();
+  updateTransferRateVisibility_();
   renderPult();
   if ($("#page-dashboard").classList.contains("active")) renderDashboard();
   if ($("#page-goals").classList.contains("active")) renderGoals();
@@ -431,6 +432,49 @@ function updateOpCurrencyBadge(){
   // по умолчанию подтягиваем валюту счёта, но пользователь может поменять вручную
   if (curSel && !curSel._userTouched){
     curSel.value = accCur;
+  }
+}
+
+function getAccountById_(id){
+  return (state.accounts || []).find(a => String(a.id) === String(id));
+}
+
+function updateTransferRateVisibility_(){
+  const type = $("#op-type")?.value || "";
+  const trRow = $("#op-transfer-row");
+  if (!trRow) return;
+
+  // если не перевод — ничего не делаем
+  if (type !== "transfer") return;
+
+  const fromId = $("#op-from-account")?.value || "";
+  const toId   = $("#op-to-account")?.value || "";
+
+  const fromAcc = getAccountById_(fromId);
+  const toAcc   = getAccountById_(toId);
+
+  const fromCur = (fromAcc?.currency || "RUB").toUpperCase();
+  const toCur   = (toAcc?.currency || "RUB").toUpperCase();
+
+  const fxField = $("#op-fx-rate")?.closest(".field");
+  const amtToField = $("#op-amount-to")?.closest(".field");
+
+  const needFx = fromCur !== toCur;
+
+  // показываем/скрываем "Курс" и "Сумма зачисления"
+  if (fxField) fxField.style.display = needFx ? "" : "none";
+  if (amtToField) amtToField.style.display = needFx ? "" : "none";
+
+  // если валюта одинаковая — курс=1, суммаTo = amount
+  if (!needFx){
+    if ($("#op-fx-rate")) $("#op-fx-rate").value = "1";
+    recalcTransferTo_(); // пересчитает amountTo как amount
+  } else {
+    // если валюта разная и курс пустой — оставим пустым (пусть вводит)
+    if ($("#op-fx-rate") && !Number($("#op-fx-rate").value || 0)) {
+      // можно не трогать
+    }
+    recalcTransferTo_();
   }
 }
 
@@ -528,6 +572,7 @@ $("#op-type").addEventListener("change", ()=>{
   renderSelects();
   renderSubcategorySelect();
   toggleOpFieldsByType_();
+  updateTransferRateVisibility_();
 });
 $("#op-category").addEventListener("change", renderSubcategorySelect);
 renderSubcategorySelect();
@@ -2792,12 +2837,47 @@ try{
 }catch(e){}
 
 function recalcTransferTo_(){
+  const type = $("#op-type")?.value || "";
+  if (type !== "transfer") return;
+
   const amount = Number($("#op-amount")?.value || 0);
-  const rate = Number($("#op-fx-rate")?.value || 0);
+
+  const fromId = $("#op-from-account")?.value || "";
+  const toId   = $("#op-to-account")?.value || "";
+  const fromAcc = (state.accounts || []).find(a => String(a.id) === String(fromId));
+  const toAcc   = (state.accounts || []).find(a => String(a.id) === String(toId));
+  const fromCur = (fromAcc?.currency || "RUB").toUpperCase();
+  const toCur   = (toAcc?.currency || "RUB").toUpperCase();
+
   const out = $("#op-amount-to");
   if (!out) return;
+
+  // одна валюта → amountTo = amount
+  if (fromCur === toCur){
+    out.value = amount > 0 ? String(amount) : "";
+    return;
+  }
+
+  // разные валюты → amountTo = amount * fxRate
+  const rate = Number($("#op-fx-rate")?.value || 0);
   if (amount > 0 && rate > 0) out.value = String((amount * rate).toFixed(2));
   else out.value = "";
 }
+
 $("#op-amount").addEventListener("input", recalcTransferTo_);
 $("#op-fx-rate").addEventListener("input", recalcTransferTo_);
+$("#op-from-account")?.addEventListener("change", ()=>{
+  updateTransferRateVisibility_();
+});
+
+$("#op-to-account")?.addEventListener("change", ()=>{
+  updateTransferRateVisibility_();
+});
+
+$("#op-amount")?.addEventListener("input", ()=>{
+  recalcTransferTo_();
+});
+
+$("#op-fx-rate")?.addEventListener("input", ()=>{
+  recalcTransferTo_();
+});
