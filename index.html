@@ -66,6 +66,24 @@
                 <option value="CNY">CNY · ¥</option>
               </select>
             </div>
+              <div class="row" id="op-transfer-row" style="display:none">
+                <div class="field">
+                <label>Откуда (счёт списания)</label>
+                <select id="op-from-account"></select>
+              </div>
+              <div class="field">
+                <label>Куда (счёт зачисления)</label>
+                <select id="op-to-account"></select>
+              </div>
+                <div class="field">
+                <label>Курс (to за 1 from)</label>
+                <input id="op-fx-rate" type="number" inputmode="decimal" placeholder="0" />
+              </div>
+              <div class="field">
+                <label>Сумма зачисления</label>
+                <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" readonly />
+              </div>
+            </div>
           </div>
 
           <div class="row op-date-row">
