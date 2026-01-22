@@ -481,13 +481,7 @@ function renderSelects(){
 
 }
 
-function renderSubcategorySelect(){
-  const catId = $("#op-category")?.value || "";
-  const type = $("#op-type").value;
-  const subSel = $("#op-subcategory");
-  if (!subSel) return;
-
-  function toggleOpFieldsByType_(){
+function toggleOpFieldsByType_(){
   const type = $("#op-type")?.value || "expense";
 
   const rowCommon = $("#op-category")?.closest(".row");   // строка Кат/Подкат/Счет/Валюта
@@ -502,6 +496,12 @@ function renderSubcategorySelect(){
     if (trRow) trRow.style.display = "none";
   }
 }
+
+function renderSubcategorySelect(){
+  const catId = $("#op-category")?.value || "";
+  const type = $("#op-type").value;
+  const subSel = $("#op-subcategory");
+  if (!subSel) return;
 
   // no subcats for transfer
   if (type==="transfer" || !catId){
@@ -801,7 +801,7 @@ if (type === "transfer"){
   payload = { type, amount, categoryId, subcategoryId, accountId, currency, date, comment };
 }
 
-    await apiPost("addOperation", { type, amount, categoryId, subcategoryId, accountId, currency, date, comment });
+    await apiPost("addOperation", payload);
     $("#op-amount").value = "";
     $("#op-comment").value = "";
     saveLastOpPrefs_();
