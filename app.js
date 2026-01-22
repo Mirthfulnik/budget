@@ -458,6 +458,18 @@ function renderSelects(){
   if (!accSel.value) accSel.value = state.accounts[0]?.id || "";
   updateOpCurrencyBadge();
 
+  const fromSel = $("#op-from-account");
+  const toSel = $("#op-to-account");
+    if (fromSel && toSel){
+  const opts = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.currency||'RUB')}</option>`).join("");
+  fromSel.innerHTML = opts;
+  toSel.innerHTML = opts;
+
+  // дефолт: первый и второй счёт, чтобы не были одинаковые
+  if (!fromSel.value) fromSel.value = state.accounts[0]?.id || "";
+  if (!toSel.value)   toSel.value = state.accounts[1]?.id || state.accounts[0]?.id || "";
+}
+
   // subcategories for selected category
   renderSubcategorySelect();
     if (prefs?.subcategoryId) $("#op-subcategory").value = prefs.subcategoryId;
@@ -474,6 +486,22 @@ function renderSubcategorySelect(){
   const type = $("#op-type").value;
   const subSel = $("#op-subcategory");
   if (!subSel) return;
+
+  function toggleOpFieldsByType_(){
+  const type = $("#op-type")?.value || "expense";
+
+  const rowCommon = $("#op-category")?.closest(".row");   // строка Кат/Подкат/Счет/Валюта
+  const trRow = $("#op-transfer-row");
+
+  if (type === "transfer"){
+    if (rowCommon) rowCommon.style.display = "none";
+    if (trRow) trRow.style.display = "flex";
+    // подкатегория уже отключается renderSubcategorySelect(), ок
+  } else {
+    if (rowCommon) rowCommon.style.display = "";
+    if (trRow) trRow.style.display = "none";
+  }
+}
 
   // no subcats for transfer
   if (type==="transfer" || !catId){
@@ -496,12 +524,14 @@ function renderSubcategorySelect(){
 }
 
 $("#op-type").addEventListener("change", ()=>{
-  saveLastOpPrefs_();     
+  saveLastOpPrefs_();
   renderSelects();
   renderSubcategorySelect();
+  toggleOpFieldsByType_();
 });
 $("#op-category").addEventListener("change", renderSubcategorySelect);
 renderSubcategorySelect();
+toggleOpFieldsByType_();
 saveLastOpPrefs_();
 $("#op-account").addEventListener("change", ()=>{ const s = $("#op-currency"); if (s) s._userTouched = false; updateOpCurrencyBadge(); saveLastOpPrefs_();});
 $("#op-currency").addEventListener("change", (e)=>{ e.target._userTouched = true; saveLastOpPrefs_(); });
@@ -2728,3 +2758,14 @@ try{
     deleteQuoteConfirm
   });
 }catch(e){}
+
+function recalcTransferTo_(){
+  const amount = Number($("#op-amount")?.value || 0);
+  const rate = Number($("#op-fx-rate")?.value || 0);
+  const out = $("#op-amount-to");
+  if (!out) return;
+  if (amount > 0 && rate > 0) out.value = String((amount * rate).toFixed(2));
+  else out.value = "";
+}
+$("#op-amount").addEventListener("input", recalcTransferTo_);
+$("#op-fx-rate").addEventListener("input", recalcTransferTo_);
