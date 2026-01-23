@@ -537,50 +537,6 @@ function toggleOpFieldsByType_(){
   const rowCommon = $("#op-category")?.closest(".row");   // строка Кат/Подкат/Счет/Валюта
   const trRow = $("#op-transfer-row");
 
-  if (type === "transfer"){
-  if (!fromAccountId || !toAccountId || fromAccountId === toAccountId){
-    toast("Проверь счета", "Выбери разные счета «Откуда» и «Куда»", "warn", 2500);
-    return;
-  }
-
-  const fromCur = getAccCurrencyById_(fromAccountId);
-  const toCur   = getAccCurrencyById_(toAccountId);
-  const needFx  = fromCur !== toCur;
-
-  let fx = 1;
-  let toAmt = amount;
-
-  if (needFx){
-    if (!fxRate || fxRate <= 0){
-      toast("Проверь курс", "Курс должен быть больше 0", "warn", 2500);
-      return;
-    }
-    fx = fxRate;
-
-    // amountTo может быть введён вручную (обратный расчёт) или рассчитан
-    toAmt = amountTo > 0 ? amountTo : round2_(amount * bankRateToMultiplier_(fx, fromCur, toCur));
-
-    if (!toAmt || toAmt <= 0){
-      toast("Проверь сумму зачисления", "Не удалось посчитать сумму зачисления", "warn", 2500);
-      return;
-    }
-  }
-
-  payload = { type, amount, fromAccountId, toAccountId, fxRate: fx, amountTo: toAmt, date, comment };
-} else {
-  payload = { type, amount, categoryId, subcategoryId, accountId, currency, date, comment };
-}
-
-    await apiPost("addOperation", payload);
-    $("#op-amount").value = "";
-    $("#op-comment").value = "";
-    saveLastOpPrefs_();
-    await syncAll("afterAdd");
-  }catch(err){
-    toast("Ошибка", String(err.message || err), "error", 0);
-  }
-});
-
 function openOpEdit(id){
   const op = state.operations.find(o=>String(o.id)===String(id));
   if (!op){ toast("Не найдено", "Операция не найдена", "error", 2000); return; }
