@@ -859,8 +859,10 @@ if (type === "transfer"){
 function openOpEdit(id){
   const op = state.operations.find(o=>String(o.id)===String(id));
   if (!op){ toast("Не найдено", "Операция не найдена", "error", 2000); return; }
+
   const title = "Редактировать операцию";
   const dateVal = isoDate(op.date || op.createdAt || new Date());
+
   const html = `
     <div class="field"><label>Тип</label>
       <select id="edit-op-type">
@@ -869,62 +871,200 @@ function openOpEdit(id){
         <option value="transfer">Перевод</option>
       </select>
     </div>
-    <div class="row">
-      <div class="field"><label>Счет</label><select id="edit-op-account"></select></div>
-      <div class="field"><label>Категория</label><select id="edit-op-category"></select></div>
+
+    <!-- Блок для income/expense -->
+    <div id="edit-op-normal">
+      <div class="row">
+        <div class="field"><label>Счёт</label><select id="edit-op-account"></select></div>
+        <div class="field"><label>Категория</label><select id="edit-op-category"></select></div>
+      </div>
+      <div class="field"><label>Подкатегория</label><select id="edit-op-subcategory"></select></div>
     </div>
-    <div class="field"><label>Подкатегория</label><select id="edit-op-subcategory"></select></select></div>
+
+    <!-- Блок для transfer -->
+    <div id="edit-op-transfer" style="display:none">
+      <div class="row">
+        <div class="field"><label>Откуда</label><select id="edit-op-from"></select></div>
+        <div class="field"><label>Куда</label><select id="edit-op-to"></select></div>
+      </div>
+      <div class="row" id="edit-op-transfer-fxrow">
+        <div class="field"><label>Курс</label><input id="edit-op-fx" type="number" step="0.0001" inputmode="decimal" placeholder="например 93.5" /></div>
+        <div class="field"><label>Сумма зачисления</label><input id="edit-op-amount-to" type="number" step="0.01" inputmode="decimal" placeholder="0" /></div>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        «Сумма» — это сумма списания (from). «Сумма зачисления» считается по курсу, но можно вручную.
+      </div>
+    </div>
+
     <div class="row op-date-row">
       <div class="field"><label>Сумма</label><input id="edit-op-amount" type="number" inputmode="numeric" placeholder="0" /></div>
       <div class="field"><label>Дата</label><input id="edit-op-date" type="date" lang="ru" /></div>
     </div>
+
     <div class="field"><label>Комментарий</label><input id="edit-op-comment" type="text" placeholder="необязательно" /></div>
+
     <div class="row">
       <button class="btn" id="btn-save-op">Сохранить изменения</button>
       <button class="btn secondary" id="btn-cancel-op">Отмена</button>
     </div>
   `;
+
   openModal(title, html);
-  // fill selects
-  const accSel = document.getElementById("edit-op-account");
-  accSel.innerHTML = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name||"Счет")} (${esc(a.currency||"RUB")})</option>`).join("");
-  const catSel = document.getElementById("edit-op-category");
-  catSel.innerHTML = state.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
-  const subSel = document.getElementById("edit-op-subcategory");
+
+  // helpers
+  const getAcc = (id)=> (state.accounts || []).find(a=>String(a.id)===String(id));
+  const fillAccountsOptions = (sel, selectedId="")=>{
+    sel.innerHTML = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name||"Счёт")} (${esc((a.currency||"RUB").toUpperCase())})</option>`).join("");
+    if (selectedId) sel.value = selectedId;
+  };
+
+  const typeSel = $("#edit-op-type");
+  const normalBox = $("#edit-op-normal");
+  const trBox = $("#edit-op-transfer");
+
+  const accSel = $("#edit-op-account");
+  const catSel = $("#edit-op-category");
+  const subSel = $("#edit-op-subcategory");
+
+  const fromSel = $("#edit-op-from");
+  const toSel = $("#edit-op-to");
+  const fxInput = $("#edit-op-fx");
+  const amtToInput = $("#edit-op-amount-to");
+
+  // fill normal selects
+  if (accSel) fillAccountsOptions(accSel, op.accountId || "");
+  if (catSel) catSel.innerHTML = state.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+
   function fillSubs(){
     const catId = catSel.value;
     const subs = state.subcategories.filter(sc=>String(sc.categoryId)===String(catId));
     subSel.innerHTML = `<option value="">—</option>` + subs.map(sc=>`<option value="${esc(sc.id)}">${esc(sc.name)}</option>`).join("");
   }
-  fillSubs();
-  document.getElementById("edit-op-type").value = op.type || "expense";
-  accSel.value = op.accountId || (state.accounts[0] ? state.accounts[0].id : "");
-  catSel.value = op.categoryId || (state.categories[0] ? state.categories[0].id : "");
-  fillSubs();
-  subSel.value = op.subcategoryId || "";
-  document.getElementById("edit-op-amount").value = Number(op.amount||0);
-  document.getElementById("edit-op-date").value = dateVal;
-  document.getElementById("edit-op-comment").value = op.comment||"";
 
-  catSel.addEventListener("change", ()=>{ fillSubs(); subSel.value = ""; });
+  if (catSel){
+    catSel.value = op.categoryId || (state.categories[0] ? state.categories[0].id : "");
+    fillSubs();
+  }
+  if (subSel) subSel.value = op.subcategoryId || "";
 
-  document.getElementById("btn-cancel-op").addEventListener("click", closeModal, {once:true});
-  document.getElementById("btn-save-op").addEventListener("click", async ()=>{
-    const amount = Number(document.getElementById("edit-op-amount").value);
-    const date = document.getElementById("edit-op-date").value;
+  // fill transfer selects
+  if (fromSel) fillAccountsOptions(fromSel, op.fromAccountId || op.accountId || "");
+  if (toSel) fillAccountsOptions(toSel, op.toAccountId || "");
+
+  // values
+  typeSel.value = op.type || "expense";
+  $("#edit-op-amount").value = Number(op.amount||0);
+  $("#edit-op-date").value = dateVal;
+  $("#edit-op-comment").value = op.comment||"";
+  if (fxInput) fxInput.value = op.fxRate ? String(op.fxRate) : "";
+  if (amtToInput) amtToInput.value = op.amountTo ? String(op.amountTo) : "";
+
+  function recalcEditTransferTo_(){
+    if (!amtToInput) return;
+    const amt = Number($("#edit-op-amount").value || 0);
+    const fx = Number(fxInput?.value || 0);
+    if (!amt || amt<=0){ amtToInput.value = ""; return; }
+    if (!fx || fx<=0){ return; }
+    amtToInput.value = String(Math.round(amt * fx * 100) / 100);
+  }
+
+  function updateEditTransferRateVisibility_(){
+    if (typeSel.value !== "transfer") return;
+
+    const fromAcc = getAcc(fromSel?.value || "");
+    const toAcc = getAcc(toSel?.value || "");
+    const fromCur = (fromAcc?.currency || "RUB").toUpperCase();
+    const toCur = (toAcc?.currency || "RUB").toUpperCase();
+
+    const needFx = fromCur !== toCur;
+    const fxRow = $("#edit-op-transfer-fxrow");
+    if (fxRow) fxRow.style.display = needFx ? "" : "none";
+
+    if (!needFx){
+      if (fxInput) fxInput.value = "1";
+      if (amtToInput) amtToInput.value = String(Number($("#edit-op-amount").value || 0) || "");
+    } else {
+      recalcEditTransferTo_();
+    }
+  }
+
+  function applyTypeUI_(){
+    const t = typeSel.value;
+    const isTr = (t === "transfer");
+    if (normalBox) normalBox.style.display = isTr ? "none" : "";
+    if (trBox) trBox.style.display = isTr ? "" : "none";
+    if (isTr) updateEditTransferRateVisibility_();
+  }
+
+  // listeners
+  if (catSel) catSel.addEventListener("change", ()=>{ fillSubs(); subSel.value=""; });
+  if (typeSel) typeSel.addEventListener("change", applyTypeUI_);
+  if (fromSel) fromSel.addEventListener("change", updateEditTransferRateVisibility_);
+  if (toSel) toSel.addEventListener("change", updateEditTransferRateVisibility_);
+  if (fxInput) fxInput.addEventListener("input", recalcEditTransferTo_);
+  $("#edit-op-amount").addEventListener("input", ()=>{ if (typeSel.value==="transfer") updateEditTransferRateVisibility_(); });
+
+  applyTypeUI_();
+
+  $("#btn-cancel-op").addEventListener("click", closeModal, {once:true});
+
+  $("#btn-save-op").addEventListener("click", async ()=>{
+    const amount = Number($("#edit-op-amount").value || 0);
+    const date = $("#edit-op-date").value;
     if (!amount || amount<=0){ toast("Проверь сумму", "Сумма должна быть больше 0", "warn", 2000); return; }
     if (!date){ toast("Проверь дату", "Выбери дату операции", "warn", 2000); return; }
-    const data = {
+
+    const t = typeSel.value;
+
+    let data = {
       id: op.id,
-      type: document.getElementById("edit-op-type").value,
+      type: t,
       amount,
-      categoryId: catSel.value,
-      subcategoryId: subSel.value || "",
-      accountId: accSel.value,
-      currency: opCurrency(op),
       date,
-      comment: document.getElementById("edit-op-comment").value || ""
+      comment: $("#edit-op-comment").value || ""
     };
+
+    if (t === "transfer"){
+      const fromId = fromSel.value || "";
+      const toId = toSel.value || "";
+      if (!fromId || !toId){ toast("Перевод", "Выбери «Откуда» и «Куда»", "warn", 2000); return; }
+      if (fromId === toId){ toast("Перевод", "Счета должны быть разными", "warn", 2000); return; }
+
+      const fromCur = (getAcc(fromId)?.currency || "RUB").toUpperCase();
+      const toCur = (getAcc(toId)?.currency || "RUB").toUpperCase();
+      const needFx = fromCur !== toCur;
+
+      let fx = 1;
+      let amtTo = amount;
+
+      if (needFx){
+        fx = Number(fxInput?.value || 0);
+        amtTo = Number(amtToInput?.value || 0);
+        if (!fx || fx<=0){ toast("Перевод", "Введи курс конвертации", "warn", 2000); return; }
+        if (!amtTo || amtTo<=0){ toast("Перевод", "Введи сумму зачисления", "warn", 2000); return; }
+      }
+
+      data = {
+        ...data,
+        // совместимость: accountId хранит from
+        accountId: fromId,
+        categoryId: "",
+        subcategoryId: "",
+        fromAccountId: fromId,
+        toAccountId: toId,
+        fxRate: fx,
+        amountTo: amtTo
+      };
+    } else {
+      data = {
+        ...data,
+        accountId: accSel.value,
+        categoryId: catSel.value,
+        subcategoryId: subSel.value || "",
+        currency: opCurrency(op)
+      };
+    }
+
     try{
       toast("Операция", "Сохраняю...", "info", 0);
       await apiPost("updateOperation", data);
@@ -935,6 +1075,7 @@ function openOpEdit(id){
     }
   });
 }
+
 
 function confirmDeleteOp(id){
   const op = state.operations.find(o=>String(o.id)===String(id));
@@ -1849,29 +1990,34 @@ function renderCurrencyStructure(){
   // считаем остаток по каждому счёту: стартовый баланс счёта + доходы - расходы (переводы пока не учитываем)
   // если у счёта нет начального баланса, считаем от 0
 
-  // считаем "остаток" по операциям: доходы - расходы по каждому счёту (переводы пока не учитываем)
+    // считаем "остаток" по операциям: доходы - расходы + переводы по каждому счёту
   const balByAcc = {};
   for (const a of state.accounts){
     balByAcc[String(a.id)] = Number(a.balance ?? a.startBalance ?? 0);
   }
+
   for (const o of state.operations){
-    const accId = String(o.accountId || "");
-    if (!accId || !(accId in balByAcc)) continue;
     const t = String(o.type || "");
     const amt = Number(o.amount || 0);
-    if (t === "income") balByAcc[accId] += amt;
-    else if (t === "expense") balByAcc[accId] -= amt;
-  }
-  if (o.type === "transfer"){
-  const fromId = String(o.fromAccountId || o.accountId || "");
-  const toId = String(o.toAccountId || "");
-  const amt = Number(o.amount || 0);
-  const amtTo = Number(o.amountTo || 0);
 
-  if (fromId) balByAcc[fromId] = (balByAcc[fromId] || 0) - amt;
-  if (toId)   balByAcc[toId]   = (balByAcc[toId]   || 0) + amtTo;
-  return; // если это внутри forEach и ниже идут expense/income
-}
+    if (t === "income" || t === "expense"){
+      const accId = String(o.accountId || "");
+      if (!accId || !(accId in balByAcc)) continue;
+      if (t === "income") balByAcc[accId] += amt;
+      else balByAcc[accId] -= amt;
+      continue;
+    }
+
+    if (t === "transfer"){
+      const fromId = String(o.fromAccountId || o.accountId || "");
+      const toId   = String(o.toAccountId || "");
+      const amtTo  = Number(o.amountTo || 0);
+
+      if (fromId && (fromId in balByAcc)) balByAcc[fromId] -= amt;
+      if (toId   && (toId   in balByAcc)) balByAcc[toId]   += (amtTo || 0);
+      continue;
+    }
+  }
 
   const groups = {};
   for (const a of state.accounts){
