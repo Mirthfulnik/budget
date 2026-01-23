@@ -474,6 +474,7 @@ function updateTransferRateVisibility_(){
     if ($("#op-fx-rate")) $("#op-fx-rate").value = "1";
     const a = Number($("#op-amount")?.value || 0);
     if ($("#op-amount-to")) $("#op-amount-to").value = a > 0 ? String(round2_(a)) : "";
+    updateFxHint_();
     return;
   }
 
@@ -482,6 +483,7 @@ function updateTransferRateVisibility_(){
   else recalcTransferTo_();
 
   updateFxHint_();
+
 }
 
 function renderSelects(){
@@ -536,6 +538,347 @@ function toggleOpFieldsByType_(){
 
   const rowCommon = $("#op-category")?.closest(".row");   // строка Кат/Подкат/Счет/Валюта
   const trRow = $("#op-transfer-row");
+
+  if (type === "transfer"){
+    if (rowCommon) rowCommon.style.display = "none";
+    if (trRow) trRow.style.display = "flex";
+    // подкатегория уже отключается renderSubcategorySelect(), ок
+  } else {
+    if (rowCommon) rowCommon.style.display = "";
+    if (trRow) trRow.style.display = "none";
+  }
+}
+
+function renderSubcategorySelect(){
+  const catId = $("#op-category")?.value || "";
+  const type = $("#op-type").value;
+  const subSel = $("#op-subcategory");
+  if (!subSel) return;
+
+  // no subcats for transfer
+  if (type==="transfer" || !catId){
+    subSel.innerHTML = `<option value="">—</option>`;
+    subSel.value = "";
+    subSel.disabled = true;
+    return;
+  }
+
+  const subcats = state.subcategories
+    .filter(sc => String(sc.categoryId)===String(catId))
+    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+
+  subSel.disabled = false;
+  subSel.innerHTML = [`<option value="">— без подкатегории —</option>`]
+    .concat(subcats.map(sc=>`<option value="${esc(sc.id)}">${esc(sc.name)}</option>`))
+    .join("");
+
+  if (!subSel.value) subSel.value = "";
+}
+
+$("#op-type").addEventListener("change", ()=>{
+  saveLastOpPrefs_();
+  renderSelects();
+  renderSubcategorySelect();
+  toggleOpFieldsByType_();
+  updateTransferRateVisibility_();
+});
+$("#op-category").addEventListener("change", renderSubcategorySelect);
+renderSubcategorySelect();
+toggleOpFieldsByType_();
+saveLastOpPrefs_();
+$("#op-account").addEventListener("change", ()=>{ const s = $("#op-currency"); if (s) s._userTouched = false; updateOpCurrencyBadge(); saveLastOpPrefs_();});
+$("#op-currency").addEventListener("change", (e)=>{ e.target._userTouched = true; saveLastOpPrefs_(); });
+
+
+/**
+ * ============================
+ *  PULT
+ * ============================
+ */
+function renderPult(){
+  renderQuoteOfDay();
+  renderOperations();
+  renderCanSpend();
+  renderLimitsView();
+  renderSavingPlan();
+}
+
+function renderCanSpend(){
+  const el = document.getElementById("can-spend");
+  const pill = document.getElementById("pill-can-spend");
+  if (!el) return;
+  const month = yyyymm(new Date());
+  let bal = state.balanceByCurrency;
+  if (!bal){
+    const byCur = {RUB:0, USD:0, EUR:0, CNY:0};
+    for (const a of state.accounts){
+      const cur = (a && a.currency) ? a.currency : "RUB";
+      byCur[cur] = (byCur[cur]||0) + Number(a.balance||0);
+    }
+    const monthOps = getMonthOps(month).filter(o=>o.type==="expense");
+    for (const o of monthOps){
+      const cur = opCurrency(o);
+      byCur[cur] = (byCur[cur]||0) - Number(o.amount||0);
+    }
+    bal = byCur;
+  }
+  const order = ["RUB","USD","EUR","CNY"];
+  const symbols = {RUB:"RUB", USD:"USD", EUR:"EUR", CNY:"CNY"};
+  const rows = order.map(cur=>{
+    const v = Math.round(Number(bal[cur]||0));
+    const sign = v<0 ? "-" : "";
+    return `<div class="csItem"><div class="csCur">${symbols[cur]||cur}</div><div class="csVal">${sign}${ruMoney(Math.abs(v), cur)}</div></div>`;
+  }).join("");
+  el.innerHTML = rows;
+  if (pill){
+    const rub = Math.round(Number(bal.RUB||0));
+    pill.textContent = rub>=0 ? ("RUB " + rub.toLocaleString("ru-RU")) : ("RUB -" + Math.abs(rub).toLocaleString("ru-RU"));
+  }
+}
+
+function getMonthOps(monthYYYYMM){
+  return state.operations.filter(o => yyyymm(o.date || o.createdAt || new Date()) === monthYYYYMM);
+}
+
+function renderLimitsView(){
+  const month = yyyymm(new Date());
+  const monthOps = getMonthOps(month).filter(o=>o.type==="expense");
+  const spentByCat = {};
+  for (const o of monthOps){
+    const k = String(o.categoryId||"");
+    spentByCat[k] = (spentByCat[k]||0) + Number(o.amount||0);
+  }
+
+  const monthLimits = state.limits.filter(l => {
+  if (String(l.month) !== String(month)) return false;
+  return Number(l.amount) > 0;
+});
+  const limitsMap = {};
+  monthLimits.forEach(l=>limitsMap[String(l.categoryId)] = l);
+  // categories that actually have a limit set (>0) this month
+const catsWithLimit = new Set(
+  monthLimits
+    .filter(l => l.amount != null && Number(l.amount) > 0)
+    .map(l => String(l.categoryId))
+);
+  
+  const expCats = state.categories
+  .filter(c => c.type === "expense")
+  .filter(c => catsWithLimit.has(String(c.id)));
+
+  const rows = expCats.map(cat=>{
+    const lim = limitsMap[String(cat.id)];
+    const limitAmount = lim ? Number(lim.amount||0) : 0;
+    const spent = Number(spentByCat[String(cat.id)]||0);
+    const remaining = limitAmount > 0 ? (limitAmount - spent) : null;
+    const pct = (limitAmount>0) ? clamp((spent/limitAmount)*100, 0, 160) : 0;
+
+    const barColor = (limitAmount===0) ? "rgba(255,255,255,.25)" : (spent>limitAmount ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
+    const status = (limitAmount===0) ? "Лимит не задан" : (spent>limitAmount ? "Превышено" : "Потрачено");
+
+    return `
+      <div class="item">
+        <div class="left">
+          <div class="t">${esc(cat.name)}</div>
+          <div class="d">${esc(status)} · ${limitAmount===0 ? "" : `${ruMoney(spent)} / ${ruMoney(limitAmount)}`}</div>
+          <div class="progress" aria-label="progress">
+            <i style="width:${pct}%; background:${barColor}"></i>
+          </div>
+        </div>
+        <div class="right" style="flex-direction:column; align-items:flex-end">
+          <div style="font-weight:900">${limitAmount===0 ? "—" : (remaining>=0 ? ruMoney(remaining) : "−"+ruMoney(Math.abs(remaining)))}</div>
+          <button class="icon-btn edit" aria-label="Настроить лимит" onclick="openLimitForCategory('${esc(cat.id)}')">⚙️</button>
+        </div>
+      </div>
+    `;
+  });
+
+  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
+
+  // summary pill
+  const totalLimit = sum(monthLimits.map(l=>Number(l.amount||0)));
+  const totalSpent = sum(Object.values(spentByCat));
+  const left = totalLimit>0 ? (totalLimit-totalSpent) : null;
+  $("#pill-limits").textContent = totalLimit>0
+    ? (left>=0 ? `Можно потратить: ${ruMoney(left)}` : `Превышено: -${ruMoney(Math.abs(left))}`)
+    : "Лимиты не заданы";
+}
+
+function renderOperations(){
+  const ops = [...state.operations].sort((a,b)=>new Date(b.date||b.createdAt)-new Date(a.date||a.createdAt));
+
+  if (!ops.length){
+    $("#ops-view").innerHTML = `<div class="muted">Пока нет операций. Добавь первую сверху.</div>`;
+    ensureToggle("ops-view");
+    return;
+  }
+
+  const groups = {};
+  for (const o of ops){
+    const d = isoDate(o.date || o.createdAt || new Date());
+    (groups[d] ||= []).push(o);
+  }
+
+  const dates = Object.keys(groups).sort((a,b)=> (a<b?1:-1));
+  const html = dates.map(d=>{
+    const items = groups[d].map(o=>{
+      const cat = catById(o.categoryId);
+      const sub = subcatById(o.subcategoryId);
+      const acc = accById(o.accountId);
+
+      const sign = o.type==="expense" ? "−" : (o.type==="income" ? "+" : "↔");
+      const cur = opCurrency(o);
+      const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
+      const note = (o.comment||"").trim();
+
+      return `
+        <div class="item">
+          <div class="left">
+            <div class="t">
+              <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
+              <span style="margin-left:6px">${esc(cat?.name || "Без категории")}${sub ? ` / ${esc(sub.name)}` : ""}</span>
+            </div>
+            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)} · ${note ? esc(note) : "—"}</div>
+          </div>
+          <div class="right">
+            <div style="font-weight:950">${sign} ${amt}</div>
+            <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
+            <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
+    return `
+      <div class="op-date-header" style="margin: 14px 0 8px; color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
+      <div class="list">${items}</div>
+    `;
+  }).join("");
+
+  $("#ops-view").innerHTML = html;
+  ensureToggle("ops-view");
+}
+
+function renderSavingPlan(){
+  const todayD = today();
+  if (!state.goals.length){
+    $("#saving-plan").innerHTML = `<div class="muted">Цели не заданы. Добавь их в разделе «Цели».</div>`;
+    return;
+  }
+
+    const goalsSorted = [...state.goals].sort((a,b)=>{
+    const ta = a.deadline ? Date.parse(a.deadline) : Infinity;
+    const tb = b.deadline ? Date.parse(b.deadline) : Infinity;
+    if (ta !== tb) return ta - tb;
+    return String(a.name||"").localeCompare(String(b.name||""), "ru");
+  });
+
+  const html = goalsSorted.map(g=>{
+
+    const target = Number(g.target||0);
+    const saved = Number(g.saved||0);
+    const left = Math.max(0, target - saved);
+    const deadline = g.deadline ? new Date(g.deadline) : null;
+    const daysLeft = deadline ? Math.max(0, daysBetween(todayD, deadline)) : null;
+    const monthsLeft = (daysLeft && daysLeft>0) ? Math.max(1, Math.ceil(daysLeft/30)) : null;
+    const perMonth = (monthsLeft) ? (left / monthsLeft) : null;
+    const pct = target>0 ? clamp((saved/target)*100, 0, 100) : 0;
+
+    return `
+      <div class="item">
+        <div class="left">
+          <div class="t">${esc(g.name||"Цель")}</div>
+          <div class="d">${ruMoney(saved)} / ${ruMoney(target)} · ${deadline ? ("Дедлайн: "+deadline.toLocaleDateString("ru-RU")) : "Без дедлайна"}</div>
+          <div class="progress"><i style="width:${pct}%; background: rgba(65,211,141,.85)"></i></div>
+          <div class="d">
+            ${left===0 ? "Цель закрыта ✅" :
+              `Рекомендация: ${perMonth ? (ruMoney(perMonth.toFixed(0))+" / мес") : "задай дедлайн для расчёта"}`
+            }
+          </div>
+        </div>
+        <div class="right" style="flex-direction:column; align-items:flex-end">
+          <div style="font-weight:900">${left===0 ? "0 ₽" : ruMoney(left)}</div>
+          <button class="icon-btn edit" aria-label="Редактировать" onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  $("#saving-plan").innerHTML = html;
+}
+
+/**
+ * Add / Delete operations
+ */
+$("#btn-add-op").addEventListener("click", async ()=>{
+  const type = $("#op-type").value;
+  const amount = Number($("#op-amount").value);
+  const categoryId = $("#op-category").value;
+  const subcategoryId = $("#op-subcategory").value || "";
+  const accountId = $("#op-account").value;
+  const currency = $("#op-currency")?.value || accCurrency(accountId);
+  const date = $("#op-date").value;
+  const comment = $("#op-comment").value || "";
+  const fromAccountId = $("#op-from-account")?.value || "";
+  const toAccountId   = $("#op-to-account")?.value || "";
+  const fxRate        = Number($("#op-fx-rate")?.value || 0);
+  const amountTo      = Number($("#op-amount-to")?.value || 0);
+
+
+  if (!amount || amount<=0){
+    toast("Проверь сумму", "Сумма должна быть больше 0", "warn", 2000);
+    return;
+  }
+  if (!date){
+    toast("Проверь дату", "Выбери дату операции", "warn", 2000);
+    return;
+  }
+
+  try{
+    toast("Операция", "Сохраняю…", "info", 0);
+    let payload;
+
+if (type === "transfer"){
+  if (!fromAccountId || !toAccountId || fromAccountId === toAccountId){
+    toast("Проверь счета", "Выбери разные счета «Откуда» и «Куда»", "warn", 2500);
+    return;
+  }
+
+  const fromCur = getAccCurrencyById_(fromAccountId);
+  const toCur   = getAccCurrencyById_(toAccountId);
+  const needFx  = fromCur !== toCur;
+
+  let fx = 1;
+  let toAmt = amount;
+
+  if (needFx){
+    if (!fxRate || fxRate <= 0){
+      toast("Проверь курс", "Курс должен быть больше 0", "warn", 2500);
+      return;
+    }
+    fx = fxRate;
+    toAmt = amountTo > 0 ? amountTo : round2_(amount * bankRateToMultiplier_(fx, fromCur, toCur));
+    if (!toAmt || toAmt <= 0){
+      toast("Проверь сумму зачисления", "Не удалось посчитать сумму зачисления", "warn", 2500);
+      return;
+    }
+  }
+
+  payload = { type, amount, fromAccountId, toAccountId, fxRate: fx, amountTo: toAmt, date, comment };
+} else {
+  payload = { type, amount, categoryId, subcategoryId, accountId, currency, date, comment };
+}
+
+    await apiPost("addOperation", payload);
+    $("#op-amount").value = "";
+    $("#op-comment").value = "";
+    saveLastOpPrefs_();
+    await syncAll("afterAdd");
+  }catch(err){
+    toast("Ошибка", String(err.message || err), "error", 0);
+  }
+});
 
 function openOpEdit(id){
   const op = state.operations.find(o=>String(o.id)===String(id));
@@ -2663,6 +3006,7 @@ try{
   });
 }catch(e){}
 
+
 function round2_(n){
   const v = Number(n||0);
   return Math.round(v * 100) / 100;
@@ -2697,6 +3041,66 @@ function bankRateToMultiplier_(bankRate, fromCur, toCur){
 function getAccCurrencyById_(accId){
   const a = (state.accounts || []).find(x=>String(x.id)===String(accId));
   return (a?.currency || "RUB").toUpperCase();
+}
+
+// remembers what the user edited last: "from" or "to"
+state.ui = state.ui || {};
+state.ui.transferLastChanged = state.ui.transferLastChanged || "from";
+
+function recalcTransferTo_(){
+  const type = $("#op-type")?.value || "expense";
+  if (type !== "transfer") return;
+
+  const amountFrom = Number($("#op-amount")?.value || 0);
+
+  const fromId = $("#op-from-account")?.value || "";
+  const toId   = $("#op-to-account")?.value || "";
+  const fromCur = getAccCurrencyById_(fromId);
+  const toCur   = getAccCurrencyById_(toId);
+
+  const out = $("#op-amount-to");
+  if (!out) return;
+
+  // одна валюта → amountTo = amountFrom
+  if (fromCur === toCur){
+    out.value = (amountFrom > 0) ? String(round2_(amountFrom)) : "";
+    return;
+  }
+
+  const bankRate = Number($("#op-fx-rate")?.value || 0);
+  const mult = bankRateToMultiplier_(bankRate, fromCur, toCur);
+  if (amountFrom > 0 && mult > 0){
+    out.value = String(round2_(amountFrom * mult));
+  } else {
+    out.value = "";
+  }
+}
+
+function recalcTransferFrom_(){
+  const type = $("#op-type")?.value || "expense";
+  if (type !== "transfer") return;
+
+  const amountTo = Number($("#op-amount-to")?.value || 0);
+
+  const fromId = $("#op-from-account")?.value || "";
+  const toId   = $("#op-to-account")?.value || "";
+  const fromCur = getAccCurrencyById_(fromId);
+  const toCur   = getAccCurrencyById_(toId);
+
+  const inp = $("#op-amount");
+  if (!inp) return;
+
+  // одна валюта → amountFrom = amountTo
+  if (fromCur === toCur){
+    inp.value = (amountTo > 0) ? String(round2_(amountTo)) : "";
+    return;
+  }
+
+  const bankRate = Number($("#op-fx-rate")?.value || 0);
+  const mult = bankRateToMultiplier_(bankRate, fromCur, toCur);
+  if (amountTo > 0 && mult > 0){
+    inp.value = String(round2_(amountTo / mult));
+  }
 }
 
 function updateFxHint_(){
@@ -2739,66 +3143,6 @@ function updateFxHint_(){
   fx.placeholder = "1.05";
 }
 
-// remembers what the user edited last: "from" or "to"
-state.ui = state.ui || {};
-state.ui.transferLastChanged = state.ui.transferLastChanged || "from";
-
-function recalcTransferTo_(){
-  const type = $("#op-type")?.value || "";
-  if (type !== "transfer") return;
-
-  const amountFrom = Number($("#op-amount")?.value || 0);
-
-  const fromId = $("#op-from-account")?.value || "";
-  const toId   = $("#op-to-account")?.value || "";
-  const fromCur = getAccCurrencyById_(fromId);
-  const toCur   = getAccCurrencyById_(toId);
-
-  const out = $("#op-amount-to");
-  if (!out) return;
-
-  // одна валюта → amountTo = amountFrom
-  if (fromCur === toCur){
-    out.value = (amountFrom > 0) ? String(round2_(amountFrom)) : "";
-    return;
-  }
-
-  const bankRate = Number($("#op-fx-rate")?.value || 0);
-  const mult = bankRateToMultiplier_(bankRate, fromCur, toCur);
-  if (amountFrom > 0 && mult > 0){
-    out.value = String(round2_(amountFrom * mult));
-  } else {
-    out.value = "";
-  }
-}
-
-function recalcTransferFrom_(){
-  const type = $("#op-type")?.value || "";
-  if (type !== "transfer") return;
-
-  const amountTo = Number($("#op-amount-to")?.value || 0);
-
-  const fromId = $("#op-from-account")?.value || "";
-  const toId   = $("#op-to-account")?.value || "";
-  const fromCur = getAccCurrencyById_(fromId);
-  const toCur   = getAccCurrencyById_(toId);
-
-  const inp = $("#op-amount");
-  if (!inp) return;
-
-  // одна валюта → amountFrom = amountTo
-  if (fromCur === toCur){
-    inp.value = (amountTo > 0) ? String(round2_(amountTo)) : "";
-    return;
-  }
-
-  const bankRate = Number($("#op-fx-rate")?.value || 0);
-  const mult = bankRateToMultiplier_(bankRate, fromCur, toCur);
-  if (amountTo > 0 && mult > 0){
-    inp.value = String(round2_(amountTo / mult));
-  }
-}
-
 // --- listeners (2-way) ---
 $("#op-amount")?.addEventListener("input", ()=>{
   state.ui.transferLastChanged = "from";
@@ -2815,10 +3159,21 @@ $("#op-fx-rate")?.addEventListener("input", ()=>{
   if (state.ui.transferLastChanged === "to") recalcTransferFrom_();
   else recalcTransferTo_();
 });
+
 $("#op-from-account")?.addEventListener("change", ()=>{
   updateTransferRateVisibility_();
+  updateFxHint_();
 });
 
+$("#op-to-account")?.addEventListener("change", ()=>{
+  updateTransferRateVisibility_();
+  updateFxHint_();
+});
+
+$("#op-type")?.addEventListener("change", ()=>{
+  updateTransferRateVisibility_();
+  updateFxHint_();
+});
 $("#op-to-account")?.addEventListener("change", ()=>{
   updateTransferRateVisibility_();
 });
@@ -2830,4 +3185,5 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
+
 
