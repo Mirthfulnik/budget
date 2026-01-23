@@ -575,3 +575,16 @@
   }
 }
 
+/* === FORCE modal buttons into 2 columns on mobile (no :has) === */
+@media (max-width: 560px){
+  .modalBody .row{
+    flex-direction: row !important;
+    flex-wrap: wrap;
+  }
+
+  .modalBody .row .btn{
+    width: 48%;
+    flex: 0 0 48% !important;
+  }
+}
+
