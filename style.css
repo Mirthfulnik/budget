@@ -564,23 +564,10 @@
   .modalBody .row{ gap: 14px !important; }
 }
 
-/* === Modal buttons: 2 columns on mobile === */
-@media (max-width: 560px){
-  .modalBody .row:has(button){
-    flex-direction: row !important;
-  }
-
   .modalBody .row:has(button) .btn{
     flex: 1;              /* одинаковая ширина */
   }
 }
-
-/* === FORCE modal buttons into 2 columns on mobile (no :has) === */
-@media (max-width: 560px){
-  .modalBody .row{
-    flex-direction: row !important;
-    flex-wrap: wrap;
-  }
 
   .modalBody .row .btn{
     width: 48%;
@@ -588,16 +575,39 @@
   }
 }
 
-/* MODAL: last row (buttons) -> 2 columns on mobile */
-@media (max-width: 560px){
-  #modalBody .row:last-child{
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 12px !important;
-  }
 
   #modalBody .row:last-child .btn{
     width: auto !important;      /* перебиваем .btn{width:100%} */
     flex: 1 1 0 !important;      /* две равные колонки */
+  }
+}
+
+/* =========================
+   MODAL FORMS: unified layout
+   Goal:
+   - all inputs in one column on mobile
+   - ONLY action buttons row (Save/Cancel) in 2 columns
+========================= */
+
+/* Mobile: keep any modal .row stacked (inputs one column) */
+@media (max-width: 560px){
+  #modalBody .row{
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+  }
+  #modalBody .row > *{
+    flex: 1 1 100% !important;
+  }
+}
+
+/* Action buttons row: add class "modalActions" to the row that contains Save/Cancel */
+@media (max-width: 560px){
+  #modalBody .modalActions{
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+  #modalBody .modalActions .btn{
+    width: 100% !important;
   }
 }
