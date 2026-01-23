@@ -226,6 +226,8 @@ function opCurrency(op){
   return op?.currency || accCurrency(op?.accountId || op?.fromAccountId || '');
 }
 
+
+
 function accById(id){ return state.accounts.find(a=>String(a.id)===String(id)); }
 
 function toast(title, body, type="info", autoHideMs=2500){
@@ -307,8 +309,10 @@ async function syncAll(reason="auto"){
     state.categories = Array.isArray(d.categories) ? d.categories : [];
     state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
     state.accounts   = Array.isArray(d.accounts) ? d.accounts : defaultAccounts();
+    state.fxRates = (data.fxRates || []);
     state.accounts = state.accounts.map(a=>({
   ...a,
+
   currency: a.currency || 'RUB',
   kind: a.kind || a.type || a.accountType || ""
 }));
@@ -816,6 +820,12 @@ $("#btn-add-op").addEventListener("click", async ()=>{
   const toAccountId   = $("#op-to-account")?.value || "";
   const fxRate        = Number($("#op-fx-rate")?.value || 0);
   const amountTo      = Number($("#op-amount-to")?.value || 0);
+  const fx = suggestFxRate(fromCurrency, toCurrency);
+    if (fx){
+    fxRateInput.value = fx;
+    // триггерни пересчет amountTo если нужно
+    }
+
 
   if (!amount || amount<=0){
     toast("Проверь сумму", "Сумма должна быть больше 0", "warn", 2000);
@@ -3027,3 +3037,5 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
+
+
