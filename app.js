@@ -309,7 +309,7 @@ async function syncAll(reason="auto"){
     state.categories = Array.isArray(d.categories) ? d.categories : [];
     state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
     state.accounts   = Array.isArray(d.accounts) ? d.accounts : defaultAccounts();
-    state.fxRates = (data.fxRates || []);
+    state.fxRates = Array.isArray(d.fxRates) ? d.fxRates : [];
     state.accounts = state.accounts.map(a=>({
   ...a,
 
@@ -820,11 +820,6 @@ $("#btn-add-op").addEventListener("click", async ()=>{
   const toAccountId   = $("#op-to-account")?.value || "";
   const fxRate        = Number($("#op-fx-rate")?.value || 0);
   const amountTo      = Number($("#op-amount-to")?.value || 0);
-  const fx = suggestFxRate(fromCurrency, toCurrency);
-    if (fx){
-    fxRateInput.value = fx;
-    // триггерни пересчет amountTo если нужно
-    }
 
 
   if (!amount || amount<=0){
@@ -3020,7 +3015,6 @@ function recalcTransferTo_(){
   else out.value = "";
 }
 
-$("#op-amount").addEventListener("input", recalcTransferTo_);
 $("#op-fx-rate").addEventListener("input", recalcTransferTo_);
 $("#op-from-account")?.addEventListener("change", ()=>{
   updateTransferRateVisibility_();
