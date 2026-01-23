@@ -540,3 +540,7 @@
 }
 
 /* Dashboard: give bar chart a bit more visual bottom room (canvas still controlled in JS) */
+
+
+/* FX helper hint under manual rate input */
+.fxHint{font-size:12px; opacity:.75; margin-top:6px; line-height:1.25;}
