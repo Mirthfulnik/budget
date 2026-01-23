@@ -544,3 +544,23 @@
 
 /* FX helper hint under manual rate input */
 .fxHint{font-size:12px; opacity:.75; margin-top:6px; line-height:1.25;}
+
+/* === MODAL FORMS: more air between fields and buttons === */
+.modalBody .field{
+  margin-bottom: 14px;
+}
+
+.modalBody .row{
+  gap: 14px;
+}
+
+.modalBody .row + .row{
+  margin-top: 6px; /* доп. расстояние между блоками, например поля -> кнопки */
+}
+
+/* mobile override: cancel the "too tight" rules for modals only */
+@media (max-width: 560px){
+  .modalBody .field{ margin-bottom: 14px !important; }
+  .modalBody .row{ gap: 14px !important; }
+}
+
