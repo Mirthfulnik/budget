@@ -448,6 +448,39 @@ function updateTransferRateVisibility_(){
   const trRow = $("#op-transfer-row");
   if (!trRow) return;
 
+  function getAccCurrencyById_(accId){
+  const a = (state.accounts || []).find(x => String(x.id) === String(accId));
+  return String(a?.currency || "RUB").toUpperCase();
+}
+
+/**
+ * Пользователь вводит "курс банка": RUB за 1 FOREIGN (например 85 RUB за 1 USD).
+ * Мы конвертируем это в "множитель": сколько TO за 1 FROM (то есть amountTo = amountFrom * multiplier).
+ */
+function bankRateToMultiplier_(bankRate, fromCur, toCur){
+  const r = Number(bankRate || 0);
+  if (!r || r <= 0) return 0;
+
+  const f = String(fromCur || "").toUpperCase();
+  const t = String(toCur || "").toUpperCase();
+
+  // Если валюты одинаковые — множитель 1
+  if (f === t) return 1;
+
+  // БАНКОВСКИЙ КУРС пользователь вводит как "RUB за 1 единицу валюты"
+  // Пример: 1 USD = 85 RUB
+
+  // RUB -> USD: 300 RUB / 85 = 3.529 USD  => множитель = 1/85
+  if (f === "RUB" && t !== "RUB") return 1 / r;
+
+  // USD -> RUB: 300 USD * 85 = 25500 RUB => множитель = 85
+  if (f !== "RUB" && t === "RUB") return r;
+
+  // Для кросса (USD<->EUR и т.п.) одним числом bankRate нельзя однозначно посчитать.
+  // Вернём 0, чтобы UI не подставлял мусор.
+  return 0;
+}
+
   // если не перевод — ничего не делаем
   if (type !== "transfer") return;
 
@@ -2988,32 +3021,34 @@ try{
 }catch(e){}
 
 function recalcTransferTo_(){
-  const type = $("#op-type")?.value || "";
+  const type = $("#op-type")?.value || "expense";
   if (type !== "transfer") return;
 
-  const amount = Number($("#op-amount")?.value || 0);
+  const amountFrom = Number($("#op-amount")?.value || 0);
+  if (!amountFrom || amountFrom <= 0) return;
 
   const fromId = $("#op-from-account")?.value || "";
   const toId   = $("#op-to-account")?.value || "";
-  const fromAcc = (state.accounts || []).find(a => String(a.id) === String(fromId));
-  const toAcc   = (state.accounts || []).find(a => String(a.id) === String(toId));
-  const fromCur = (fromAcc?.currency || "RUB").toUpperCase();
-  const toCur   = (toAcc?.currency || "RUB").toUpperCase();
+  const fromCur = getAccCurrencyById_(fromId);
+  const toCur   = getAccCurrencyById_(toId);
 
-  const out = $("#op-amount-to");
-  if (!out) return;
+  const fxInput = $("#op-fx-rate");
+  const amtToInput = $("#op-amount-to");
+  if (!amtToInput) return;
 
-  // одна валюта → amountTo = amount
   if (fromCur === toCur){
-    out.value = amount > 0 ? String(amount) : "";
+    if (fxInput) fxInput.value = "1";
+    amtToInput.value = String(round2_(amountFrom));
     return;
   }
 
-  // разные валюты → amountTo = amount * fxRate
-  const rate = Number($("#op-fx-rate")?.value || 0);
-  if (amount > 0 && rate > 0) out.value = String((amount * rate).toFixed(2));
-  else out.value = "";
+  const bankRate = Number(fxInput?.value || 0); // пользователь вводит 85
+  const mult = bankRateToMultiplier_(bankRate, fromCur, toCur); // RUB->USD станет 1/85
+  if (!mult) return;
+
+  amtToInput.value = String(round2_(amountFrom * mult));
 }
+
 
 $("#op-fx-rate").addEventListener("input", recalcTransferTo_);
 $("#op-from-account")?.addEventListener("change", ()=>{
