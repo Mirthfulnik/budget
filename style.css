@@ -564,3 +564,14 @@
   .modalBody .row{ gap: 14px !important; }
 }
 
+/* === Modal buttons: 2 columns on mobile === */
+@media (max-width: 560px){
+  .modalBody .row:has(button){
+    flex-direction: row !important;
+  }
+
+  .modalBody .row:has(button) .btn{
+    flex: 1;              /* одинаковая ширина */
+  }
+}
+
