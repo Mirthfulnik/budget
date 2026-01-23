@@ -588,3 +588,16 @@
   }
 }
 
+/* MODAL: last row (buttons) -> 2 columns on mobile */
+@media (max-width: 560px){
+  #modalBody .row:last-child{
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+  }
+
+  #modalBody .row:last-child .btn{
+    width: auto !important;      /* перебиваем .btn{width:100%} */
+    flex: 1 1 0 !important;      /* две равные колонки */
+  }
+}
