@@ -1260,8 +1260,14 @@ function renderDashboard(){
   ];
   $("#kpi-row").innerHTML = kpis.map(k=>{
     const deltaPct = (k.prev===0) ? (k.val===0 ? 0 : 100) : ((k.val-k.prev)/Math.abs(k.prev))*100;
-    const cls = (k.val>k.prev) ? "up" : (k.val<k.prev) ? "down" : "flat";
-    const arrow = (cls==="up")?"↑":(cls==="down")?"↓":"→";
+    const dir = (k.val>k.prev) ? "up" : (k.val<k.prev) ? "down" : "flat"; // фактическое направление
+    const arrow = (dir==="up") ? "↑" : (dir==="down") ? "↓" : "→";
+
+    // цвет: для расходов — наоборот
+    const cls = (k.label === "Расходы")
+    ? (dir==="up" ? "down" : dir==="down" ? "up" : "flat")
+    : dir;
+
     return `
       <div class="kpi">
         <div class="sub">${esc(k.label)} · <span class="delta ${cls}">${arrow} ${Math.round(deltaPct)}%</span></div>
@@ -2118,10 +2124,14 @@ function renderGoals(){
             <div class="progress"><i style="width:${pct}%; background: rgba(87,166,255,.85)"></i></div>
             <div class="d">Осталось: ${ruMoney(left)}</div>
           </div>
-          <div class="right" style="flex-direction:column; align-items:flex-end">
-            <button class="icon-btn edit" aria-label="Редактировать" onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
-            <button class="btn inline small danger" onclick="deleteGoalConfirm('${esc(g.id)}')">✕</button>
-          </div>
+          <<div class="right" style="align-items:center">
+            <button class="icon-btn edit" aria-label="Редактировать"
+            onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
+
+            <button class="icon-btn danger" aria-label="Удалить"
+      onclick="deleteGoalConfirm('${esc(g.id)}')">✕</button>
+  </div>
+
         </div>
       `;
     }).join("");
