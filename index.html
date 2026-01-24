@@ -249,43 +249,50 @@
     </section>
 
     <!-- GOALS -->
-    <section id="page-goals" class="page">
-      <div class="grid cols2">
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Цели</h2>
-            <button class="btn inline small" id="btn-new-goal">+ Цель</button>
-          </div>
-          <div id="goals-list" class="list"></div>
-        </div>
+<section id="page-goals" class="page">
+  <div class="grid cols2">
 
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Мотивационная шкала (доход)</h2>
-            <span class="pill">столбчатая</span>
-          </div>
-          <div class="hint" style="margin-bottom:8px">
-            Минимальный порог: 160 000 ₽. Этапы можно менять в «Настройки → Мотивационная шкала: этапы».
-          </div>
-          <div class="canvasWrap"><canvas id="motivation-bar"></canvas></div>
-          <div class="hr"></div>
-          <div class="row">
-            <div class="kpi">
-              <div class="sub">Текущий среднемесячный доход</div>
-              <div class="val" id="mot-cur">—</div>
-            </div>
-            <div class="kpi">
-              <div class="sub">Следующий этап</div>
-              <div class="val" id="mot-next">—</div>
-            </div>
-            <div class="kpi">
-              <div class="sub">Нужно прибавить</div>
-              <div class="val" id="mot-gap">—</div>
-            </div>
-          </div>
+    <!-- Мотивационная шкала -->
+    <div class="card">
+      <div class="cardTitle">
+        <h2>Мотивационная шкала (доход)</h2>
+        <span class="pill">столбчатая</span>
+      </div>
+      <div class="hint" style="margin-bottom:8px">
+        Минимальный порог: 160 000 ₽. Этапы можно менять в «Настройки → Мотивационная шкала: этапы».
+      </div>
+      <div class="canvasWrap">
+        <canvas id="motivation-bar"></canvas>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <div class="kpi">
+          <div class="sub">Текущий среднемесячный доход</div>
+          <div class="val" id="mot-cur">—</div>
+        </div>
+        <div class="kpi">
+          <div class="sub">Следующий этап</div>
+          <div class="val" id="mot-next">—</div>
+        </div>
+        <div class="kpi">
+          <div class="sub">Нужно прибавить</div>
+          <div class="val" id="mot-gap">—</div>
         </div>
       </div>
-    </section>
+    </div>
+
+    <!-- Цели -->
+    <div class="card">
+      <div class="cardTitle">
+        <h2>Цели</h2>
+        <button class="btn inline small" id="btn-new-goal">+ Цель</button>
+      </div>
+      <div id="goals-list" class="list"></div>
+    </div>
+
+  </div>
+</section>
+
 
     <!-- SETTINGS -->
     <section id="page-settings" class="page">
