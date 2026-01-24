@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Finance 2026</title>
+  <title>My Money</title>
   <link rel="stylesheet" href="./style.css" />
 
   <!-- Favicons -->
@@ -26,113 +26,9 @@
 
 <body>
   <div class="wrap">
-    <!-- PULT -->
-    <section id="page-pult" class="page active">
-      
-      <div class="card" id="quote-day-card" style="margin-bottom:12px">
-        <div class="cardTitle">
-          <h2>Цитата дня</h2>
-          <span class="pill" id="quote-day-pill">мотивация</span>
-        </div>
-        <div id="quote-day-text" style="font-weight:850; line-height:1.35">—</div>
-        <div id="quote-day-author" class="muted" style="margin-top:8px"></div>
-      </div>
-<div class="grid cols2">
-        <div class="card opCard">
-          <div class="cardTitle">
-            <h2>Новая операция</h2>
-            <span class="pill" id="pill-month"></span>
-          </div>
+          </div> <!-- конец grid cols2 -->
 
-          <div class="row">
-            <div class="field">
-              <label>Тип</label>
-              <select id="op-type">
-                <option value="expense">Расход</option>
-                <option value="income">Доход</option>
-                <option value="transfer">Перевод</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Сумма</label>
-              <input id="op-amount" type="number" inputmode="decimal" placeholder="0" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Категория</label>
-              <select id="op-category"></select>
-            </div>
-            <div class="field">
-              <label>Подкатегория</label>
-              <select id="op-subcategory"></select>
-            </div>
-            <div class="field">
-              <label>Счёт</label>
-              <select id="op-account"></select>
-            </div>
-            <div class="field">
-              <label>Валюта</label>
-              <select id="op-currency">
-                <option value="RUB">RUB · ₽</option>
-                <option value="USD">USD · $</option>
-                <option value="EUR">EUR · €</option>
-                <option value="CNY">CNY · ¥</option>
-              </select>
-            </div>
-          </div>
-          
-            <div class="row" id="op-transfer-row" style="display:none">
-                <div class="field">
-                <label>Откуда (счёт списания)</label>
-                <select id="op-from-account"></select>
-              </div>
-              <div class="field">
-                <label>Куда (счёт зачисления)</label>
-                <select id="op-to-account"></select>
-              </div>
-                <div class="field">
-                <label>Курс</label>
-                <input id="op-fx-rate" type="number" inputmode="decimal" placeholder="0" />
-          <div id="fx-hint" class="fxHint"></div>
-              </div>
-              <div class="field">
-                <label>Сумма зачисления</label>
-                <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" />
-              </div>
-            </div>
-
-          <div class="row op-date-row">
-            <div class="field">
-              <label>Дата</label>
-              <input id="op-date" type="date" />
-            </div>
-            <div class="field">
-              <label>Комментарий</label>
-              <input id="op-comment" type="text" placeholder="необязательно" />
-            </div>
-          </div>
-
-          <button class="btn" id="btn-add-op">Добавить операцию</button>
-          <div class="hint" style="margin-top:8px">
-            Удаление операции — через крестик в списке ниже (с подтверждением).
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Лимиты (месяц)</h2>
-            <span class="pill" id="pill-limits"></span>
-          </div>
-          <div id="limits-view" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Лимиты хранятся в Google Таблице, но настраиваются в разделе «Настройки».
-          </div>
-        </div>
-      </div>
-
+      <!-- СПИСОК ОПЕРАЦИЙ -->
       <div class="card">
         <div class="cardTitle">
           <h2>Операции</h2>
@@ -143,6 +39,19 @@
         <div id="ops-view"></div>
       </div>
 
+      <!-- ЛИМИТЫ -->
+      <div class="card">
+        <div class="cardTitle">
+          <h2>Лимиты (месяц)</h2>
+          <span class="pill" id="pill-limits"></span>
+        </div>
+        <div id="limits-view" class="list"></div>
+        <div class="hint" style="margin-top:10px">
+          Лимиты хранятся в Google Таблице, но настраиваются в разделе «Настройки».
+        </div>
+      </div>
+
+      <!-- ПЛАН НАКОПЛЕНИЙ -->
       <div class="card">
         <div class="cardTitle">
           <h2>План накоплений на ключевые события</h2>
@@ -150,7 +59,6 @@
         </div>
         <div id="saving-plan" class="list"></div>
       </div>
-    </section>
 
     <!-- DASHBOARD -->
     <section id="page-dashboard" class="page">
@@ -322,9 +230,6 @@
             Список категорий хранится в Google Таблице, но управляется отсюда.
           </div>
         </div>
-
-
-
         
         <div class="card">
           <div class="cardTitle">
