@@ -2124,7 +2124,7 @@ function renderGoals(){
             <div class="progress"><i style="width:${pct}%; background: rgba(87,166,255,.85)"></i></div>
             <div class="d">Осталось: ${ruMoney(left)}</div>
           </div>
-          <<div class="right" style="align-items:center">
+          <div class="right" style="align-items:center">
             <button class="icon-btn edit" aria-label="Редактировать"
             onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
 
