@@ -44,7 +44,6 @@
             <h2>Новая операция</h2>
             <span class="pill" id="pill-month"></span>
           </div>
-
           <div class="row">
             <div class="field">
               <label>Тип</label>
@@ -54,13 +53,11 @@
                 <option value="transfer">Перевод</option>
               </select>
             </div>
-
             <div class="field">
               <label>Сумма</label>
               <input id="op-amount" type="number" inputmode="decimal" placeholder="0" />
             </div>
           </div>
-
           <div class="row">
             <div class="field">
               <label>Категория</label>
@@ -84,7 +81,6 @@
               </select>
             </div>
           </div>
-          
             <div class="row" id="op-transfer-row" style="display:none">
                 <div class="field">
                 <label>Откуда (счёт списания)</label>
@@ -104,7 +100,6 @@
                 <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" />
               </div>
             </div>
-
           <div class="row op-date-row">
             <div class="field">
               <label>Дата</label>
@@ -115,13 +110,11 @@
               <input id="op-comment" type="text" placeholder="необязательно" />
             </div>
           </div>
-
           <button class="btn" id="btn-add-op">Добавить операцию</button>
           <div class="hint" style="margin-top:8px">
             Удаление операции — через крестик в списке ниже (с подтверждением).
           </div>
         </div>
-
         <div class="card">
           <div class="cardTitle">
             <h2>Лимиты (месяц)</h2>
@@ -133,7 +126,6 @@
           </div>
         </div>
       </div>
-
       <div class="card">
         <div class="cardTitle">
           <h2>Операции</h2>
@@ -143,7 +135,6 @@
         </div>
         <div id="ops-view"></div>
       </div>
-
       <div class="card">
         <div class="cardTitle">
           <h2>План накоплений на ключевые события</h2>
@@ -152,7 +143,6 @@
         <div id="saving-plan" class="list"></div>
       </div>
     </section>
-
 
     <!-- DASHBOARD -->
     <section id="page-dashboard" class="page">
