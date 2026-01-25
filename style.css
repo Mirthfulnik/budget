@@ -611,3 +611,59 @@
     width: 100% !important;
   }
 }
+
+/* === Telegram Feedback Widget === */
+
+#tg-feedback-btn{
+  position:fixed;
+  right:16px;
+  bottom:calc(var(--navH) + 26px + var(--safeB));
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:#111;
+  color:#fff;
+  font-size:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:120;
+  box-shadow: var(--shadow);
+}
+
+#tg-feedback-box{
+  position:fixed;
+  right:16px;
+  bottom:calc(var(--navH) + 96px + var(--safeB));
+  width:320px;
+  max-width:calc(100vw - 32px);
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  display:none;
+  flex-direction:column;
+  z-index:120;
+}
+
+#tg-feedback-box.open{
+  display:flex;
+}
+
+#tg-feedback-box .header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-weight:800;
+}
+
+#tg-feedback-form{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
