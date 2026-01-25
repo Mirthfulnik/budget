@@ -460,17 +460,58 @@
   <div id="chartTip" class="chartTip" style="display:none"></div>
 
   <script>
-const submitBtn = document.getElementById('fb-submit');
-const submitText = submitBtn.querySelector('.btnText');
-const statusBox = document.getElementById('fb-status');
+/* ====== CONFIG ====== */
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxD0_02jtfw9FNRcsnQJeDwXnZHWbyIoXBpHFgfLKXHDRAZvSYsI8dmg8rturxFrjQ7vw/exec";
 
+/* ====== UI refs ====== */
+const btn = document.getElementById('tg-feedback-btn');
+const box = document.getElementById('tg-feedback-box');
+const closeBtn = document.getElementById('tg-close');
+
+const form = document.getElementById('tg-feedback-form');
+const nameInput = document.getElementById('fb-name');
+const msgInput  = document.getElementById('fb-message');
+
+const submitBtn  = document.getElementById('fb-submit');
+const submitText = submitBtn.querySelector('.btnText');
+const statusBox  = document.getElementById('fb-status');
+
+/* file UI */
+const fileInput  = document.getElementById('fb-file');
+const fileRow    = document.getElementById('fb-file-row');
+const previewEl  = document.getElementById('fb-preview');
+const fileNameEl = document.getElementById('fb-file-name');
+const clearBtn   = document.getElementById('fb-file-clear');
+
+/* file state */
+let lastPickedDataUrl = null;
+let lastPickedMeta = null; // { name, type }
+
+/* ====== Open/Close ====== */
+btn.onclick = () => box.classList.toggle('open');
+closeBtn.onclick = () => box.classList.remove('open');
+
+/* ====== Draft restore/save ====== */
+nameInput.value = localStorage.getItem('fb_name') || '';
+msgInput.value  = localStorage.getItem('fb_msg') || '';
+
+[nameInput, msgInput].forEach(el => {
+  el.addEventListener('input', () => {
+    localStorage.setItem('fb_name', nameInput.value);
+    localStorage.setItem('fb_msg', msgInput.value);
+  });
+});
+
+/* ====== Status + loading ====== */
 function setLoading(isLoading){
   if(isLoading){
     submitBtn.classList.add('is-loading');
     submitText.textContent = 'Отправка…';
+    submitBtn.disabled = true;
   } else {
     submitBtn.classList.remove('is-loading');
     submitText.textContent = 'Отправить';
+    submitBtn.disabled = false;
   }
 }
 
@@ -487,27 +528,36 @@ function hideStatus(){
   statusBox.className = '';
 }
 
-const btn = document.getElementById('tg-feedback-btn');
-const box = document.getElementById('tg-feedback-box');
-const closeBtn = document.getElementById('tg-close');
-const form = document.getElementById('tg-feedback-form');
-const nameInput = document.getElementById('fb-name');
-const msgInput = document.getElementById('fb-message');
+/* ====== File pick/clear ====== */
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) { hidePickedFile(); return; }
 
-btn.onclick = () => box.classList.toggle('open');
-closeBtn.onclick = () => box.classList.remove('open');
+  const reader = new FileReader();
+  reader.onload = () => {
+    lastPickedDataUrl = reader.result;
+    lastPickedMeta = { name: file.name, type: file.type };
 
-/* restore draft */
-nameInput.value = localStorage.getItem('fb_name') || '';
-msgInput.value = localStorage.getItem('fb_msg') || '';
-
-[nameInput, msgInput].forEach(el=>{
-  el.addEventListener('input',()=>{
-    localStorage.setItem('fb_name', nameInput.value);
-    localStorage.setItem('fb_msg', msgInput.value);
-  });
+    previewEl.src = lastPickedDataUrl;
+    fileNameEl.textContent = file.name;
+    fileRow.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
 });
 
+clearBtn.addEventListener('click', () => hidePickedFile());
+
+function hidePickedFile(){
+  fileInput.value = '';
+  lastPickedDataUrl = null;
+  lastPickedMeta = null;
+
+  previewEl.removeAttribute('src');
+  fileNameEl.textContent = '';
+  fileRow.style.display = 'none';
+}
+
+/* ====== Submit ====== */
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -524,64 +574,37 @@ form.addEventListener('submit', async (e) => {
   await send(fd);
 });
 
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxD0_02jtfw9FNRcsnQJeDwXnZHWbyIoXBpHFgfLKXHDRAZvSYsI8dmg8rturxFrjQ7vw/exec";
-
-  async function send(fd) {
+async function send(fd) {
   try {
+    hideStatus();
+    setLoading(true);
+
     const r = await fetch(WEB_APP_URL, { method: 'POST', body: fd });
+    const t = await r.text();
 
-    form.reset();
-    localStorage.removeItem('fb_name');
-    localStorage.removeItem('fb_msg');
-    hidePickedFile();                 // <-- важно
-    box.classList.remove('open');
+    if (!r.ok) {
+      throw new Error(`HTTP ${r.status}: ${t}`);
+    }
+
+    showStatus('ok', 'Спасибо! Сообщение отправлено. Мы разберёмся и вернёмся с ответом.');
+
+    // даём пользователю увидеть успех, затем сбрасываем и закрываем
+    setTimeout(() => {
+      form.reset();
+      localStorage.removeItem('fb_name');
+      localStorage.removeItem('fb_msg');
+      hidePickedFile();
+      box.classList.remove('open');
+      hideStatus();
+    }, 1400);
+
   } catch (err) {
-    console.error(err);
-    alert('Не удалось отправить. Открой консоль (F12) и пришли ошибку.');
+    console.error('Feedback send failed:', err);
+    showStatus('err', 'Не удалось отправить. Проверь интернет и попробуй ещё раз.');
+  } finally {
+    setLoading(false);
   }
 }
-
-  form.reset();
-  localStorage.removeItem('fb_name');
-  localStorage.removeItem('fb_msg');
-  box.classList.remove('open');
-}
-
-    fileInput.addEventListener('change', () => {
-  const file = fileInput.files && fileInput.files[0];
-  if (!file) {
-    hidePickedFile();
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    lastPickedDataUrl = reader.result;
-    lastPickedMeta = { name: file.name, type: file.type };
-
-    previewEl.src = lastPickedDataUrl;
-    fileNameEl.textContent = file.name;
-    fileRow.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
-});
-
-    clearBtn.addEventListener('click', () => {
-  hidePickedFile();
-});
-
-function hidePickedFile(){
-  // сброс input file
-  fileInput.value = '';
-  // сброс сохранённого base64
-  lastPickedDataUrl = null;
-  lastPickedMeta = null;
-
-  previewEl.removeAttribute('src');
-  fileNameEl.textContent = '';
-  fileRow.style.display = 'none';
-}
-
 </script>
 
 </body>
