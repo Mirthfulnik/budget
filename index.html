@@ -412,6 +412,36 @@
     </div>
   </div>
 
+  <!-- === TELEGRAM FEEDBACK === -->
+<div id="tg-feedback-btn">💬</div>
+
+<div id="tg-feedback-box">
+  <div class="header">
+    <span>Обратная связь</span>
+    <div id="tg-close" class="x">✕</div>
+  </div>
+
+  <form id="tg-feedback-form">
+    <div class="field">
+      <label>Имя *</label>
+      <input type="text" id="fb-name" required>
+    </div>
+
+    <div class="field">
+      <label>Описание ситуации *</label>
+      <textarea id="fb-message" required></textarea>
+    </div>
+
+    <div class="field">
+      <label>Скриншот (необязательно)</label>
+      <input type="file" id="fb-file" accept="image/*">
+    </div>
+
+    <button class="btn">Отправить</button>
+  </form>
+</div>
+
+
   <script type="module" src="./app.js"></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
 </body>
