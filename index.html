@@ -445,7 +445,14 @@
   </div>
 </div>
 
-    <button class="btn">Отправить</button>
+    <button class="btn" id="fb-submit">
+  <i class="spinner" aria-hidden="true"></i>
+  <span class="btnText">Отправить</span>
+</button>
+
+    <div id="fb-status" role="status" aria-live="polite"></div>
+
+
   </form>
 </div>
 
@@ -453,11 +460,37 @@
   <div id="chartTip" class="chartTip" style="display:none"></div>
 
   <script>
+const submitBtn = document.getElementById('fb-submit');
+const submitText = submitBtn.querySelector('.btnText');
+const statusBox = document.getElementById('fb-status');
+
+function setLoading(isLoading){
+  if(isLoading){
+    submitBtn.classList.add('is-loading');
+    submitText.textContent = 'Отправка…';
+  } else {
+    submitBtn.classList.remove('is-loading');
+    submitText.textContent = 'Отправить';
+  }
+}
+
+function showStatus(type, text){
+  statusBox.className = '';
+  statusBox.classList.add(type); // ok / err
+  statusBox.textContent = text;
+  statusBox.style.display = 'block';
+}
+
+function hideStatus(){
+  statusBox.style.display = 'none';
+  statusBox.textContent = '';
+  statusBox.className = '';
+}
+
 const btn = document.getElementById('tg-feedback-btn');
 const box = document.getElementById('tg-feedback-box');
 const closeBtn = document.getElementById('tg-close');
 const form = document.getElementById('tg-feedback-form');
-
 const nameInput = document.getElementById('fb-name');
 const msgInput = document.getElementById('fb-message');
 
