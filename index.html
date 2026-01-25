@@ -503,7 +503,8 @@ async function send(fd) {
   });
 
   form.reset();
-  localStorage.clear();
+  localStorage.removeItem('fb_name');
+  localStorage.removeItem('fb_msg');
   box.classList.remove('open');
 }
 
