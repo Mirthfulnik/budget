@@ -667,3 +667,48 @@
   gap:10px;
 }
 
+/* === Feedback sending state === */
+#tg-feedback-form .btn.is-loading{
+  position: relative;
+  opacity: .85;
+  pointer-events: none;
+}
+
+#tg-feedback-form .btn .spinner{
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.25);
+  border-top-color: rgba(255,255,255,.9);
+  animation: spin .8s linear infinite;
+  display: none;
+}
+
+#tg-feedback-form .btn.is-loading .spinner{
+  display: inline-block;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* === Feedback status message === */
+#fb-status{
+  display:none;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+#fb-status.ok{
+  border-color: rgba(65,211,141,.28);
+  background: rgba(65,211,141,.10);
+}
+
+#fb-status.err{
+  border-color: rgba(255,91,110,.28);
+  background: rgba(255,91,110,.10);
+}
