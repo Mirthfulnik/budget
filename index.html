@@ -477,10 +477,10 @@ form.addEventListener('submit', async e=>{
   const file = document.getElementById('fb-file').files[0];
   if(file) fd.append('file', file);
 
-  await fetch('send-to-telegram.php', {
-    method:'POST',
-    body:fd
-  });
+  await fetch('https://script.google.com/macros/s/AKfycbxD0_02jtfw9FNRcsnQJeDwXnZHWbyIoXBpHFgfLKXHDRAZvSYsI8dmg8rturxFrjQ7vw/exec', {
+  method: 'POST',
+  body: fd
+});
 
   form.reset();
   localStorage.removeItem('fb_name');
