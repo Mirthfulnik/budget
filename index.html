@@ -467,26 +467,44 @@ msgInput.value = localStorage.getItem('fb_msg') || '';
   });
 });
 
-form.addEventListener('submit', async e=>{
+form.addEventListener('submit', async e => {
   e.preventDefault();
 
   const fd = new FormData();
   fd.append('name', nameInput.value);
   fd.append('message', msgInput.value);
 
-  const file = document.getElementById('fb-file').files[0];
-  if(file) fd.append('file', file);
+  const fileInput = document.getElementById('fb-file');
+  const file = fileInput.files[0];
 
-  await fetch('https://script.google.com/macros/s/AKfycbxD0_02jtfw9FNRcsnQJeDwXnZHWbyIoXBpHFgfLKXHDRAZvSYsI8dmg8rturxFrjQ7vw/exec', {
-  method: 'POST',
-  body: fd
+  if (file) {
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      fd.append('file', reader.result);       // base64
+      fd.append('filename', file.name);
+      fd.append('filetype', file.type);
+
+      await send(fd);
+    };
+
+    reader.readAsDataURL(file);
+  } else {
+    await send(fd);
+  }
 });
+
+async function send(fd) {
+  await fetch(WEB_APP_URL, {
+    method: 'POST',
+    body: fd
+  });
 
   form.reset();
-  localStorage.removeItem('fb_name');
-  localStorage.removeItem('fb_msg');
+  localStorage.clear();
   box.classList.remove('open');
-});
+}
+
 </script>
 
 </body>
