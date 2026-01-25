@@ -555,30 +555,42 @@
 }
 
 .modalBody .row + .row{
-  margin-top: 6px; /* доп. расстояние между блоками, например поля -> кнопки */
+  margin-top: 6px;
 }
 
-/* mobile override: cancel the "too tight" rules for modals only */
+/* mobile override: keep proper spacing inside modals */
 @media (max-width: 560px){
   .modalBody .field{ margin-bottom: 14px !important; }
   .modalBody .row{ gap: 14px !important; }
 }
 
-  .modalBody .row:has(button) .btn{
-    flex: 1;              /* одинаковая ширина */
+/* =========================
+   MODAL FORMS: unified layout
+   - inputs one column on mobile
+   - ONLY action buttons row (Save/Cancel) in 2 columns
+========================= */
+
+/* Mobile: stack modal rows (inputs in one column) */
+@media (max-width: 560px){
+  #modalBody .row{
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+  }
+  #modalBody .row > *{
+    flex: 1 1 100% !important;
+    min-width: 0;
   }
 }
 
-  .modalBody .row .btn{
-    width: 48%;
-    flex: 0 0 48% !important;
+/* Action buttons row: add class="modalActions" to the row containing Save/Cancel */
+@media (max-width: 560px){
+  #modalBody .modalActions{
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
   }
-}
-
-
-  #modalBody .row:last-child .btn{
-    width: auto !important;      /* перебиваем .btn{width:100%} */
-    flex: 1 1 0 !important;      /* две равные колонки */
+  #modalBody .modalActions .btn{
+    width: 100% !important;
   }
 }
 
