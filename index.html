@@ -441,8 +441,53 @@
   </form>
 </div>
 
-
   <script type="module" src="./app.js"></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
+
+  <script>
+const btn = document.getElementById('tg-feedback-btn');
+const box = document.getElementById('tg-feedback-box');
+const closeBtn = document.getElementById('tg-close');
+const form = document.getElementById('tg-feedback-form');
+
+const nameInput = document.getElementById('fb-name');
+const msgInput = document.getElementById('fb-message');
+
+btn.onclick = () => box.classList.toggle('open');
+closeBtn.onclick = () => box.classList.remove('open');
+
+/* restore draft */
+nameInput.value = localStorage.getItem('fb_name') || '';
+msgInput.value = localStorage.getItem('fb_msg') || '';
+
+[nameInput, msgInput].forEach(el=>{
+  el.addEventListener('input',()=>{
+    localStorage.setItem('fb_name', nameInput.value);
+    localStorage.setItem('fb_msg', msgInput.value);
+  });
+});
+
+form.addEventListener('submit', async e=>{
+  e.preventDefault();
+
+  const fd = new FormData();
+  fd.append('name', nameInput.value);
+  fd.append('message', msgInput.value);
+
+  const file = document.getElementById('fb-file').files[0];
+  if(file) fd.append('file', file);
+
+  await fetch('send-to-telegram.php', {
+    method:'POST',
+    body:fd
+  });
+
+  form.reset();
+  localStorage.removeItem('fb_name');
+  localStorage.removeItem('fb_msg');
+  box.classList.remove('open');
+});
+</script>
+
 </body>
 </html>
