@@ -13,7 +13,7 @@
  * ОЖИДАЕМЫЕ ACTIONS (POST JSON):
  * { key, action:"addOperation"|"deleteOperation"|... , data:{...} }
  */
-const API_URL = https://functions.yandexcloud.net/d4ehdcbfqlk0q7liralq";   // например: https://script.google.com/macros/s/XXXX/exec
+const API_URL = "https://functions.yandexcloud.net/d4ehdcbfqlk0q7liralq";   // например: https://script.google.com/macros/s/XXXX/exec
 const API_KEY = ""; // если используешь ключ в GAS — вставь сюда
 
 /**
