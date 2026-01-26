@@ -729,6 +729,7 @@ function renderOperations(){
       const sign = o.type==="expense" ? "−" : (o.type==="income" ? "+" : "↔");
       const cur = opCurrency(o);
       const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
+      const note = (o.comment||"").trim();
       const safeTrim = (v) => (v == null ? "" : String(v)).trim();
 
       return `
