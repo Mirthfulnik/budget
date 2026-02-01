@@ -866,9 +866,30 @@ if (type === "transfer"){
     }
   }
 
-  payload = { type, amount, fromAccountId, toAccountId, fxRate: fx, amountTo: toAmt, date, comment };
+  if (type === "transfer") {
+  payload = {
+    type,
+    amount,
+    accountId: fromAccountId,
+    currency: getAccCurrencyById_(fromAccountId),
+    fromAccountId,
+    toAccountId,
+    fxRate: fx,
+    amountTo: toAmt,
+    date,
+    comment
+  };
 } else {
-  payload = { type, amount, categoryId, subcategoryId, accountId, currency, date, comment };
+  payload = {
+    type,
+    amount,
+    categoryId,
+    subcategoryId,
+    accountId,
+    currency,
+    date,
+    comment
+  };
 }
 
     await apiPost("addOperation", payload);
