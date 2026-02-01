@@ -840,8 +840,8 @@ $("#btn-add-op").addEventListener("click", async ()=>{
     toast("Операция", "Сохраняю…", "info", 0);
     let payload;
 
-if (type === "transfer"){
-  if (!fromAccountId || !toAccountId || fromAccountId === toAccountId){
+if (type === "transfer") {
+  if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
     toast("Проверь счета", "Выбери разные счета «Откуда» и «Куда»", "warn", 2500);
     return;
   }
@@ -853,23 +853,23 @@ if (type === "transfer"){
   let fx = 1;
   let toAmt = amount;
 
-  if (needFx){
-    if (!fxRate || fxRate <= 0){
+  if (needFx) {
+    if (!fxRate || fxRate <= 0) {
       toast("Проверь курс", "Курс должен быть больше 0", "warn", 2500);
       return;
     }
     fx = fxRate;
     toAmt = amountTo > 0 ? amountTo : round2_(amount * bankRateToMultiplier_(fx, fromCur, toCur));
-    if (!toAmt || toAmt <= 0){
+    if (!toAmt || toAmt <= 0) {
       toast("Проверь сумму зачисления", "Не удалось посчитать сумму зачисления", "warn", 2500);
       return;
     }
   }
 
-  if (type === "transfer") {
   payload = {
     type,
     amount,
+    // совместимость: accountId хранит from
     accountId: fromAccountId,
     currency: getAccCurrencyById_(fromAccountId),
     fromAccountId,
@@ -879,6 +879,7 @@ if (type === "transfer"){
     date,
     comment
   };
+
 } else {
   payload = {
     type,
@@ -892,7 +893,7 @@ if (type === "transfer"){
   };
 }
 
-    await apiPost("addOperation", payload);
+await apiPost("addOperation", payload);
     $("#op-amount").value = "";
     $("#op-comment").value = "";
     saveLastOpPrefs_();
