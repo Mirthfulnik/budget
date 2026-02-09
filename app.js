@@ -60,8 +60,41 @@ const ruMoney = (n, cur='RUB') => {
     return v.toLocaleString('ru-RU') + ' ' + sym;
   }
 };
+
+const parseDateToMs_ = (v) => {
+  if (v == null) return NaN;
+  if (typeof v === "number") return v;
+  if (v instanceof Date) return v.getTime();
+  const s = String(v).trim();
+  if (!s) return NaN;
+
+  // YYYY-MM-DD (or ISO with time)
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m){
+    const [_, yy, mm, dd] = m;
+    return new Date(Number(yy), Number(mm)-1, Number(dd)).getTime();
+  }
+
+  // DD.MM.YYYY (common RU format)
+  m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m){
+    const [_, dd, mm, yy] = m;
+    return new Date(Number(yy), Number(mm)-1, Number(dd)).getTime();
+  }
+
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : NaN;
+};
+
+const opTimeMs_ = (o) => {
+  const t = parseDateToMs_(o?.date || o?.createdAt || o?.updatedAt);
+  return Number.isFinite(t) ? t : 0;
+};
+
+
 const isoDate = (d) => {
-  const x = new Date(d);
+  const ms = parseDateToMs_(d);
+  const x = new Date(Number.isFinite(ms) ? ms : Date.now());
   const yyyy = x.getFullYear();
   const mm = String(x.getMonth()+1).padStart(2,"0");
   const dd = String(x.getDate()).padStart(2,"0");
@@ -225,6 +258,59 @@ function accCurrency(accId){
 function opCurrency(op){
   return op?.currency || accCurrency(op?.accountId || op?.fromAccountId || '');
 }
+
+function computeDayTotals_(opsInDay){
+  const incomeByCur = {};
+  const expenseByCur = {};
+  const transferByCur = {};
+
+  for (const o of opsInDay){
+    const cur = opCurrency(o);
+    const amt = Number(o.amount || 0);
+    if (!Number.isFinite(amt)) continue;
+
+    if (o.type === "income"){
+      incomeByCur[cur] = (incomeByCur[cur] || 0) + amt;
+    }else if (o.type === "expense"){
+      expenseByCur[cur] = (expenseByCur[cur] || 0) + amt;
+    }else if (o.type === "transfer"){
+      transferByCur[cur] = (transferByCur[cur] || 0) + Math.abs(amt);
+    }
+  }
+
+  const currencies = Array.from(new Set([
+    ...Object.keys(incomeByCur),
+    ...Object.keys(expenseByCur),
+    ...Object.keys(transferByCur),
+  ]));
+
+  const balanceParts = [];
+  const transferParts = [];
+
+  for (const cur of currencies){
+    const inc = Number(incomeByCur[cur] || 0);
+    const exp = Number(expenseByCur[cur] || 0);
+    const bal = inc - exp;
+    if (bal !== 0){
+      const sign = bal > 0 ? "+" : "−";
+      balanceParts.push(`${sign}${ruMoney(Math.abs(bal), cur)}`);
+    }else if ((inc !== 0) || (exp !== 0)){
+      balanceParts.push(`0 ${cur}`);
+    }
+
+    const tr = Number(transferByCur[cur] || 0);
+    if (tr){
+      transferParts.push(`↔${ruMoney(tr, cur)}`);
+    }
+  }
+
+  const balanceText = balanceParts.length ? balanceParts.join(" · ") : "0";
+  const transferText = transferParts.length ? transferParts.join(" · ") : "";
+
+  return { balanceText, transferText };
+}
+
+
 
 
 
@@ -704,10 +790,70 @@ const catsWithLimit = new Set(
     : "Лимиты не заданы";
 }
 
-function renderOperations(){
-  const ops = [...state.operations].sort((a,b)=>new Date(b.date||b.createdAt)-new Date(a.date||a.createdAt));
 
-  if (!ops.length){
+function renderOpsFilters_(){
+  const typeEl = $("#ops-filter-type");
+  const fromEl = $("#ops-filter-from");
+  const toEl   = $("#ops-filter-to");
+  const accEl  = $("#ops-filter-account");
+  const resetBtn = $("#ops-filter-reset");
+
+  // Bind once
+  for (const el of [typeEl, fromEl, toEl, accEl]){
+    if (el && !el.dataset.bound){
+      el.addEventListener("change", ()=>renderOperations());
+      el.dataset.bound = "1";
+    }
+  }
+  if (resetBtn && !resetBtn.dataset.bound){
+    resetBtn.addEventListener("click", ()=>{
+      if (typeEl) typeEl.value = "all";
+      if (fromEl) fromEl.value = "";
+      if (toEl) toEl.value = "";
+      if (accEl) accEl.value = "all";
+      renderOperations();
+    });
+    resetBtn.dataset.bound = "1";
+  }
+
+  // Populate accounts
+  if (accEl){
+    const current = accEl.value || "all";
+    const options = ['<option value="all">Все счета</option>']
+      .concat(state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`))
+      .join("");
+    accEl.innerHTML = options;
+    if ([...accEl.options].some(o=>o.value===current)) accEl.value = current;
+    else accEl.value = "all";
+  }
+}
+
+function getOpsFilters_(){
+  const type = ($("#ops-filter-type")?.value || "all").trim();
+  const from = ($("#ops-filter-from")?.value || "").trim(); // YYYY-MM-DD
+  const to   = ($("#ops-filter-to")?.value || "").trim();
+  const acc  = ($("#ops-filter-account")?.value || "all").trim();
+  return { type, from, to, acc };
+}
+
+function renderOperations(){
+  renderOpsFilters_();
+  const f = getOpsFilters_();
+  let ops = [...state.operations];
+
+  // Filters
+  if (f.type !== "all") ops = ops.filter(o=>o.type===f.type);
+  if (f.acc !== "all") ops = ops.filter(o=>String(o.accountId||"")===String(f.acc));
+
+  const fromMs = f.from ? parseDateToMs_(f.from) : NaN;
+  const toMs = f.to ? parseDateToMs_(f.to) : NaN;
+  if (Number.isFinite(fromMs)) ops = ops.filter(o=>opTimeMs_(o) >= fromMs);
+  if (Number.isFinite(toMs))   ops = ops.filter(o=>opTimeMs_(o) <= (toMs + 24*60*60*1000 - 1));
+
+  // Sort: newest first
+  ops.sort((a,b)=>opTimeMs_(b)-opTimeMs_(a));
+
+if (!ops.length){
     $("#ops-view").innerHTML = `<div class="muted">Пока нет операций. Добавь первую сверху.</div>`;
     ensureToggle("ops-view");
     return;
@@ -751,8 +897,12 @@ function renderOperations(){
     }).join("");
 
     const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
+    const totals = computeDayTotals_(groups[d] || []);
     return `
-      <div class="op-date-header" style="margin: 14px 0 8px; color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
+      <div class="op-date-header-row" style="margin: 14px 0 8px;">
+        <div class="op-date-header" style="color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
+        <div class="op-date-total">Итог: ${esc(totals.balanceText)}${totals.transferText ? ` <span class="muted">·</span> ${esc(totals.transferText)}` : ""}</div>
+      </div>
       <div class="list">${items}</div>
     `;
   }).join("");
@@ -3218,5 +3368,4 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
-
 
