@@ -134,7 +134,7 @@
           </div>
         </div>
         
-        <div class="opsFilters" id="ops-filters">
+        <div class="opsFiltersGrid" id="ops-filters">
           <div class="field">
             <label for="ops-filter-type">Тип</label>
             <select id="ops-filter-type" class="input">
@@ -146,17 +146,13 @@
           </div>
 
           <div class="field">
-            <label>Период</label>
-            <div class="field inline2" style="margin:0">
-              <div>
-                <label for="ops-filter-from" style="font-size:11px; opacity:.9">с</label>
-                <input id="ops-filter-from" class="input" type="date">
-              </div>
-              <div>
-                <label for="ops-filter-to" style="font-size:11px; opacity:.9">по</label>
-                <input id="ops-filter-to" class="input" type="date">
-              </div>
-            </div>
+            <label for="ops-filter-from">С</label>
+            <input id="ops-filter-from" class="input" type="date">
+          </div>
+
+          <div class="field">
+            <label for="ops-filter-to">По</label>
+            <input id="ops-filter-to" class="input" type="date">
           </div>
 
           <div class="field">
@@ -166,7 +162,7 @@
             </select>
           </div>
 
-          <div class="field" style="min-width:120px; flex:0 0 auto">
+          <div class="field opsFiltersActions">
             <button class="btn inline small ghost" id="ops-filter-reset" style="width:100%">Сброс</button>
           </div>
         </div>
