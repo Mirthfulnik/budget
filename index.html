@@ -25,7 +25,52 @@
   </head>
 
 <body>
-  <div class="wrap">
+  
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay" class="authOverlay">
+    <div class="authCard">
+      <div class="authTitle">Вход</div>
+      <div class="authHint">Авторизация нужна, чтобы открыть сервис.</div>
+
+      <div id="authError" class="authError"></div>
+
+      <!-- Desktop: login + password -->
+      <div data-auth-mode="password">
+        <label class="authLabel">Логин</label>
+        <input id="authLogin" class="authInput" type="text" autocomplete="username" placeholder="Логин" />
+        <label class="authLabel" style="margin-top:10px">Пароль</label>
+        <input id="authPassword" class="authInput" type="password" autocomplete="current-password" placeholder="Пароль" />
+        <button id="authBtnLogin" class="authBtn">Войти</button>
+      </div>
+
+      <!-- Mobile: 6-digit PIN -->
+      <div data-auth-mode="pin" style="display:none">
+        <div class="authPinTitle">Введите PIN</div>
+        <div id="authPinDots" class="authPinDots" aria-label="PIN dots">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="authKeypad" role="group" aria-label="PIN keypad">
+          <button class="key" data-pin="1">1</button>
+          <button class="key" data-pin="2">2</button>
+          <button class="key" data-pin="3">3</button>
+          <button class="key" data-pin="4">4</button>
+          <button class="key" data-pin="5">5</button>
+          <button class="key" data-pin="6">6</button>
+          <button class="key" data-pin="7">7</button>
+          <button class="key" data-pin="8">8</button>
+          <button class="key" data-pin="9">9</button>
+          <button class="key keySub" data-pin="clear">Очистить</button>
+          <button class="key" data-pin="0">0</button>
+          <button class="key keySub" data-pin="back">⌫</button>
+        </div>
+
+        <div class="authSmall">PIN вводится на телефоне (6 цифр).</div>
+      </div>
+
+    </div>
+  </div>
+<div class="wrap">
   
 <!-- PULT -->
     <section id="page-pult" class="page active">
@@ -489,44 +534,6 @@
 
   </form>
 </div>
-
-
-  <!-- AUTH OVERLAY -->
-  <div id="authOverlay" class="authOverlay" style="display:none" aria-modal="true" role="dialog">
-    <div class="authCard">
-      <div class="authTitle">Авторизация</div>
-      <div id="authErr" class="authErr" aria-live="polite"></div>
-
-      <!-- PC: login/password -->
-      <div id="authPc">
-        <label class="authLabel">Логин</label>
-        <input id="authLogin" class="input authInput" autocomplete="username" />
-        <label class="authLabel" style="margin-top:10px">Пароль</label>
-        <input id="authPassword" class="input authInput" type="password" autocomplete="current-password" />
-        <button id="authPcBtn" class="btn primary authBtn" type="button">Войти</button>
-      </div>
-
-      <!-- Phone: 6-digit PIN -->
-      <div id="authPin" style="display:none">
-        <div class="pinDots" id="pinDots">••••••</div>
-        <div class="pinGrid" aria-label="PIN keypad">
-          <button class="pinKey" data-v="1" type="button">1</button>
-          <button class="pinKey" data-v="2" type="button">2</button>
-          <button class="pinKey" data-v="3" type="button">3</button>
-          <button class="pinKey" data-v="4" type="button">4</button>
-          <button class="pinKey" data-v="5" type="button">5</button>
-          <button class="pinKey" data-v="6" type="button">6</button>
-          <button class="pinKey" data-v="7" type="button">7</button>
-          <button class="pinKey" data-v="8" type="button">8</button>
-          <button class="pinKey" data-v="9" type="button">9</button>
-          <button class="pinKey pinKeySub" data-v="clear" type="button">Очистить</button>
-          <button class="pinKey" data-v="0" type="button">0</button>
-          <button class="pinKey pinKeySub" data-v="back" type="button">⌫</button>
-        </div>
-        <div class="authHint">Введите 6‑значный PIN</div>
-      </div>
-    </div>
-  </div>
 
   <script type="module" src="./app.js"></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
