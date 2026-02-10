@@ -44,7 +44,7 @@ const isMobileAuthMode_ = ()=> {
 
 const authHeaders_ = ()=> {
   const t = authGetToken_();
-  return t ? { "Authorization": "Bearer " + t } : {};
+  return t ? { "X-Auth-Token": t } : {};
 };
 
 const authShow_ = ()=> {
@@ -148,7 +148,7 @@ async function authDoLoginPin_(){
     authSetToken_(j.token);
     authHide_();
     // reload bootstrap after login
-    try { await bootstrap(); } catch(e){}
+    try { await syncAll("afterLogin"); } catch(e){}
     return true;
   }catch(e){
     if (err) err.textContent = "Неверный PIN";
@@ -173,7 +173,7 @@ async function authDoLoginPassword_(){
     if (!j.token) throw new Error("No token");
     authSetToken_(j.token);
     authHide_();
-    try { await bootstrap(); } catch(e){}
+    try { await syncAll("afterLogin"); } catch(e){}
     return true;
   }catch(e){
     if (err) err.textContent = "Неверный логин или пароль";
