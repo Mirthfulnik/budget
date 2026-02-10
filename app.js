@@ -151,18 +151,20 @@ function applyCollapsible(containerId, limit=COLLAPSE_LIMIT){
     it.style.display = (!expanded && idx >= limit) ? 'none' : '';
   });
 
-  // Special handling for operations: hide empty date headers + lists
+  // Special handling for operations: hide empty date blocks (header row + list)
   if (containerId === 'ops-view'){
-    const headers = Array.from(el.querySelectorAll('.op-date-header'));
-    headers.forEach(h=>{
-      const list = h.nextElementSibling;
+    const rows = Array.from(el.querySelectorAll('.op-date-header-row'));
+    rows.forEach(row=>{
+      const list = row.nextElementSibling;
       if (!list || !list.classList.contains('list')) return;
-      const anyVisible = Array.from(list.querySelectorAll('.item')).some(it=>it.style.display !== 'none');
-      h.style.display = anyVisible ? '' : 'none';
+
+      const anyVisible = Array.from(list.querySelectorAll('.item'))
+        .some(it => it.style.display !== 'none');
+
+      row.style.display  = anyVisible ? '' : 'none';
       list.style.display = anyVisible ? '' : 'none';
     });
   }
-}
 
 function ensureToggle(containerId, limit=COLLAPSE_LIMIT){
   const el = document.getElementById(containerId);
