@@ -770,3 +770,85 @@
   opacity:.95;
 }
 .op-date-total .muted{ color: var(--muted); font-weight:800; }
+
+
+
+/* ============================
+ * AUTH OVERLAY
+ * ============================ */
+.authOverlay{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,.62);
+  z-index: 9999;
+}
+.authCard{
+  width: min(420px, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.authTitle{
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.authErr{
+  min-height: 18px;
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.authLabel{
+  display:block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.authInput{
+  width: 100%;
+}
+.authBtn{
+  width: 100%;
+  margin-top: 12px;
+}
+.pinDots{
+  font-size: 22px;
+  letter-spacing: 6px;
+  text-align: center;
+  margin: 10px 0 12px;
+}
+.pinGrid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pinKey{
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+}
+.pinKeySub{
+  font-size: 12px;
+  font-weight: 600;
+}
+.authHint{
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+@media (max-width: 560px){
+  .authCard{ width: min(360px, 100%); }
+  .pinKey{ height: 54px; font-size: 20px; }
+}
