@@ -345,7 +345,8 @@ async function apiGet(params){
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
   if (API_KEY) url.searchParams.set("key", API_KEY);
-  const r = await fetch(url.toString(), { method:"GET" });
+  const r = await fetch(url.toString(), { method:"GET", headers: authHeaders_() });
+  if (r.status === 401){ authClearToken_(); authShow_(); throw new Error("Unauthorized"); }
   const j = await r.json().catch(()=>({ok:false, error:"Invalid JSON"}));
   if (!r.ok || j.ok===false) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
@@ -355,13 +356,200 @@ async function apiPost(action, data){
   if (API_KEY) payload.key = API_KEY;
   const r = await fetch(API_URL, {
     method:"POST",
-    headers: { "Content-Type":"text/plain;charset=utf-8" }, // GAS-friendly
+    headers: { "Content-Type":"text/plain;charset=utf-8", ...authHeaders_() }, // GAS-friendly
     body: JSON.stringify(payload)
   });
+  if (r.status === 401){ authClearToken_(); authShow_(); throw new Error("Unauthorized"); }
   const j = await r.json().catch(()=>({ok:false, error:"Invalid JSON"}));
   if (!r.ok || j.ok===false) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
 }
+
+
+/**
+ * ============================
+ *  AUTH (Yandex Function)
+ * ============================
+ * Требует поддержу в Yandex Function:
+ *  - action: "auth_login"  -> {ok:true, token}
+ *  - action: "auth_check"  -> {ok:true}
+ * Остальные action защищены Bearer-токеном.
+ */
+const AUTH_TOKEN_KEY = "auth_token_v1";
+
+function authGetToken_(){
+  try { return localStorage.getItem(AUTH_TOKEN_KEY) || ""; } catch { return ""; }
+}
+function authSetToken_(t){
+  try { localStorage.setItem(AUTH_TOKEN_KEY, t || ""); } catch {}
+}
+function authClearToken_(){
+  try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch {}
+}
+
+function authHeaders_(){
+  const t = authGetToken_();
+  return t ? { "Authorization": "Bearer " + t } : {};
+}
+
+function authIsPhone_(){
+  return window.matchMedia && window.matchMedia("(max-width: 560px)").matches;
+}
+
+function authShow_(){
+  const o = $("#authOverlay");
+  if (!o) return;
+  o.style.display = "flex";
+
+  const isPhone = authIsPhone_();
+  $("#authPc").style.display = isPhone ? "none" : "block";
+  $("#authPin").style.display = isPhone ? "block" : "none";
+
+  // reset
+  $("#authErr").textContent = "";
+  const pcLogin = $("#authLogin");
+  const pcPass  = $("#authPassword");
+  if (pcLogin) pcLogin.value = "";
+  if (pcPass) pcPass.value = "";
+  if ($("#pinDots")) $("#pinDots").textContent = "••••••";
+  o.dataset.pin = "";
+}
+
+function authHide_(){
+  const o = $("#authOverlay");
+  if (o) o.style.display = "none";
+}
+
+async function authRawPost_(action, data, extraHeaders={}){
+  const payload = { action, data };
+  if (API_KEY) payload.key = API_KEY;
+
+  const r = await fetch(API_URL, {
+    method:"POST",
+    headers: { "Content-Type":"text/plain;charset=utf-8", ...extraHeaders },
+    body: JSON.stringify(payload)
+  });
+
+  const j = await r.json().catch(()=>({ok:false, error:"Invalid JSON"}));
+  if (!r.ok || j.ok===false) {
+    const msg = (j && (j.error || j.detail)) ? (j.error || j.detail) : `HTTP ${r.status}`;
+    const err = new Error(msg);
+    err.httpStatus = r.status;
+    throw err;
+  }
+  return j;
+}
+
+async function authCheck_(){
+  const t = authGetToken_();
+  if (!t) return false;
+  try {
+    await authRawPost_("auth_check", {}, authHeaders_());
+    return true;
+  } catch (e) {
+    authClearToken_();
+    return false;
+  }
+}
+
+async function authLoginPassword_(login, password){
+  const j = await authRawPost_("auth_login", { mode:"password", login, password });
+  if (!j.token) throw new Error("No token");
+  authSetToken_(j.token);
+  return true;
+}
+
+async function authLoginPin_(pin){
+  const j = await authRawPost_("auth_login", { mode:"pin", pin });
+  if (!j.token) throw new Error("No token");
+  authSetToken_(j.token);
+  return true;
+}
+
+function authSetError_(msg){
+  const el = $("#authErr");
+  if (el) el.textContent = msg || "Ошибка авторизации";
+}
+
+function authBindUi_(){
+  // PC form
+  $("#authPcBtn")?.addEventListener("click", async ()=>{
+    try{
+      authSetError_("");
+      const login = ($("#authLogin")?.value || "").trim();
+      const pass  = ($("#authPassword")?.value || "");
+      await authLoginPassword_(login, pass);
+      authHide_();
+      // после входа — продолжаем инициализацию (см. authGate_())
+      if (window.__authResumeInit) window.__authResumeInit();
+    }catch(e){
+      authSetError_(e?.message || "Не удалось войти");
+    }
+  });
+
+  $("#authPassword")?.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") $("#authPcBtn")?.click();
+  });
+  $("#authLogin")?.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") $("#authPassword")?.focus();
+  });
+
+  // PIN keypad
+  $$(".pinKey").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const o = $("#authOverlay");
+      if (!o) return;
+      let pin = o.dataset.pin || "";
+      const v = btn.dataset.v || "";
+
+      if (v === "back") pin = pin.slice(0, -1);
+      else if (v === "clear") pin = "";
+      else if (/^\d$/.test(v) && pin.length < 6) pin += v;
+
+      o.dataset.pin = pin;
+
+      // dots
+      const dots = "•".repeat(pin.length).padEnd(6, "•");
+      $("#pinDots").textContent = dots;
+
+      if (pin.length === 6){
+        try{
+          authSetError_("");
+          await authLoginPin_(pin);
+          authHide_();
+          if (window.__authResumeInit) window.__authResumeInit();
+        }catch(e){
+          authSetError_(e?.message || "Неверный PIN");
+          o.dataset.pin = "";
+          $("#pinDots").textContent = "••••••";
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Gate: вызывается в начале init().
+ * Если токен валиден — пропускаем.
+ * Если нет — показываем оверлей и останавливаем init до логина.
+ */
+async function authGate_(){
+  authBindUi_();
+
+  const ok = await authCheck_();
+  if (ok) return true;
+
+  // блокируем init до логина
+  authShow_();
+  return new Promise((resolve)=>{
+    window.__authResumeInit = ()=>{
+      window.__authResumeInit = null;
+      resolve(true);
+    };
+  });
+}
+
+
 
 /**
  * ============================
@@ -3124,9 +3312,12 @@ function escAttr(s){ return esc(s).replaceAll("\n"," "); }
  *  INIT
  * ============================
  */
-(function init(){
+(async function init(){
   // set default pills
   $("#pill-month").textContent = new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
+
+  // auth gate (blocks init until login)
+  await authGate_();
 
   // initial period
   setPeriod("week");
@@ -3372,4 +3563,3 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
-
