@@ -166,6 +166,8 @@ function applyCollapsible(containerId, limit=COLLAPSE_LIMIT){
     });
   }
 
+}
+
 function ensureToggle(containerId, limit=COLLAPSE_LIMIT){
   const el = document.getElementById(containerId);
   if (!el) return;
