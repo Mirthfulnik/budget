@@ -490,6 +490,44 @@
   </form>
 </div>
 
+
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay" class="authOverlay" style="display:none" aria-modal="true" role="dialog">
+    <div class="authCard">
+      <div class="authTitle">Авторизация</div>
+      <div id="authErr" class="authErr" aria-live="polite"></div>
+
+      <!-- PC: login/password -->
+      <div id="authPc">
+        <label class="authLabel">Логин</label>
+        <input id="authLogin" class="input authInput" autocomplete="username" />
+        <label class="authLabel" style="margin-top:10px">Пароль</label>
+        <input id="authPassword" class="input authInput" type="password" autocomplete="current-password" />
+        <button id="authPcBtn" class="btn primary authBtn" type="button">Войти</button>
+      </div>
+
+      <!-- Phone: 6-digit PIN -->
+      <div id="authPin" style="display:none">
+        <div class="pinDots" id="pinDots">••••••</div>
+        <div class="pinGrid" aria-label="PIN keypad">
+          <button class="pinKey" data-v="1" type="button">1</button>
+          <button class="pinKey" data-v="2" type="button">2</button>
+          <button class="pinKey" data-v="3" type="button">3</button>
+          <button class="pinKey" data-v="4" type="button">4</button>
+          <button class="pinKey" data-v="5" type="button">5</button>
+          <button class="pinKey" data-v="6" type="button">6</button>
+          <button class="pinKey" data-v="7" type="button">7</button>
+          <button class="pinKey" data-v="8" type="button">8</button>
+          <button class="pinKey" data-v="9" type="button">9</button>
+          <button class="pinKey pinKeySub" data-v="clear" type="button">Очистить</button>
+          <button class="pinKey" data-v="0" type="button">0</button>
+          <button class="pinKey pinKeySub" data-v="back" type="button">⌫</button>
+        </div>
+        <div class="authHint">Введите 6‑значный PIN</div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./app.js"></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
 
