@@ -27,6 +27,55 @@ const API_KEY = ""; // если используешь ключ в GAS — вс�
  */
 const AUTH_TOKEN_KEY = "finance2026_token";
 
+/**
+ * ============================
+ *  BOOTSTRAP CACHE (localStorage)
+ * ============================
+ * Стратегия: stale-while-revalidate
+ *  1. При открытии страницы — мгновенно рендерим данные из кеша (если есть и не старше CACHE_MAX_AGE_MS)
+ *  2. В фоне всегда запускаем запрос к API
+ *  3. Когда API ответил — обновляем кеш и тихо перерисовываем интерфейс
+ *
+ * Таким образом пользователь видит данные немедленно, а не ждёт сети.
+ */
+const BOOTSTRAP_CACHE_KEY = "finance2026_bootstrap_v1";
+const CACHE_MAX_AGE_MS    = 5 * 60 * 1000; // 5 минут — максимальный возраст "мгновенных" данных
+const CACHE_BG_INTERVAL_MS = 60 * 1000;    // фоновое обновление раз в минуту (если вкладка открыта)
+
+function cacheBootstrapSave(data) {
+  try {
+    localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify({
+      data,
+      savedAt: Date.now(),
+    }));
+  } catch (e) {}
+}
+
+function cacheBootstrapLoad() {
+  try {
+    const raw = localStorage.getItem(BOOTSTRAP_CACHE_KEY);
+    if (!raw) return null;
+    const { data, savedAt } = JSON.parse(raw);
+    const age = Date.now() - (savedAt || 0);
+    if (age > CACHE_MAX_AGE_MS) return null; // устарело — не отдаём как «мгновенные»
+    return { data, age };
+  } catch (e) { return null; }
+}
+
+function cacheBootstrapLoadStale() {
+  // Читает кеш без проверки возраста — для отображения пока идёт фоновый запрос
+  try {
+    const raw = localStorage.getItem(BOOTSTRAP_CACHE_KEY);
+    if (!raw) return null;
+    const { data, savedAt } = JSON.parse(raw);
+    return { data, age: Date.now() - (savedAt || 0) };
+  } catch (e) { return null; }
+}
+
+function cacheBootstrapInvalidate() {
+  try { localStorage.removeItem(BOOTSTRAP_CACHE_KEY); } catch (e) {}
+}
+
 const authGetToken_ = ()=> {
   try { return localStorage.getItem(AUTH_TOKEN_KEY) || ""; } catch(e){ return ""; }
 };
@@ -147,8 +196,8 @@ async function authDoLoginPin_(){
     if (!j.token) throw new Error("No token");
     authSetToken_(j.token);
     authHide_();
-    // reload bootstrap after login
-    try { await syncAll("afterLogin"); } catch(e){}
+    // reload bootstrap after login — кеш сбрасывается внутри syncAll("afterLogin")
+    try { await syncAll("afterLogin"); startBgSync(); } catch(e){}
     return true;
   }catch(e){
     if (err) err.textContent = "Неверный PIN";
@@ -173,7 +222,7 @@ async function authDoLoginPassword_(){
     if (!j.token) throw new Error("No token");
     authSetToken_(j.token);
     authHide_();
-    try { await syncAll("afterLogin"); } catch(e){}
+    try { await syncAll("afterLogin"); startBgSync(); } catch(e){}
     return true;
   }catch(e){
     if (err) err.textContent = "Неверный логин или пароль";
@@ -584,39 +633,114 @@ $("#btn-sync").addEventListener("click", ()=>syncAll("manual"));
  *  BOOTSTRAP / SYNC
  * ============================
  */
-async function syncAll(reason="auto"){
-  toast("Синхронизация", "Запрашиваю данные…", "info", 0);
-  try{
-    const j = await apiGet({ action:"bootstrap" });
-    const d = (j.data || {});
-    state.categories = Array.isArray(d.categories) ? d.categories : [];
-    state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
-    state.accounts   = Array.isArray(d.accounts) ? d.accounts : defaultAccounts();
-    state.fxRates = Array.isArray(d.fxRates) ? d.fxRates : [];
-    state.accounts = state.accounts.map(a=>({
-  ...a,
 
-  currency: a.currency || 'RUB',
-  kind: a.kind || a.type || a.accountType || ""
-}));
-    state.limits     = Array.isArray(d.limits) ? d.limits.map(l=>({
-      ...l,
-      // normalize month to "YYYY-MM" so limits match the current month
-      month: yyyymm(l?.month || "")
-    })) : [];
-    state.operations = Array.isArray(d.operations) ? d.operations : [];
-    state.goals      = Array.isArray(d.goals) ? d.goals : [];
-    state.stages     = Array.isArray(d.stages) ? d.stages : defaultStages();
-    state.quotes     = Array.isArray(d.quotes) ? d.quotes : defaultQuotes();
-    state.lastBootstrapAt = new Date();
+/**
+ * Применяет данные bootstrap к state и перерисовывает интерфейс.
+ * Используется и при загрузке из кеша, и при получении от API.
+ */
+function applyBootstrapData(d, { silent = false } = {}) {
+  state.categories    = Array.isArray(d.categories)    ? d.categories    : [];
+  state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
+  state.accounts      = Array.isArray(d.accounts)      ? d.accounts      : defaultAccounts();
+  state.fxRates       = Array.isArray(d.fxRates)       ? d.fxRates       : [];
+  state.accounts = state.accounts.map(a => ({
+    ...a,
+    currency: a.currency || "RUB",
+    kind:     a.kind || a.type || a.accountType || "",
+  }));
+  state.limits = Array.isArray(d.limits)
+    ? d.limits.map(l => ({ ...l, month: yyyymm(l?.month || "") }))
+    : [];
+  state.operations = Array.isArray(d.operations) ? d.operations : [];
+  state.goals      = Array.isArray(d.goals)      ? d.goals      : [];
+  state.stages     = Array.isArray(d.stages)     ? d.stages     : defaultStages();
+  state.quotes     = Array.isArray(d.quotes)     ? d.quotes     : defaultQuotes();
+  state.lastBootstrapAt = new Date();
 
-    normalizeState();
-    toast("Синхронизация", "Готово ✅", "ok", 1800);
+  normalizeState();
+  if (!silent) renderAll();
+}
 
-    renderAll();
-  }catch(err){
-    toast("Ошибка синхронизации", String(err.message || err), "error", 0);
+/**
+ * Основная функция синхронизации.
+ *
+ * reason:
+ *   "init"      — первая загрузка страницы: сначала кеш (мгновенно), потом API (фоново)
+ *   "manual"    — кнопка «Синхр.»: всегда идём в сеть, показываем тост
+ *   "afterLogin"— после логина: сбрасываем кеш и загружаем свежее
+ *   прочее      — после мутаций: сбрасываем кеш, идём в сеть
+ */
+async function syncAll(reason = "auto") {
+  const isInit   = reason === "init";
+  const isManual = reason === "manual";
+  const isAfterLogin = reason === "afterLogin";
+
+  // После логина и после мутаций — кеш уже не актуален
+  if (isAfterLogin || (!isInit && !isManual)) {
+    cacheBootstrapInvalidate();
   }
+
+  // ── Шаг 1: мгновенный рендер из кеша (только при первой загрузке) ──
+  if (isInit) {
+    const stale = cacheBootstrapLoadStale();
+    if (stale) {
+      const ageMin = Math.round(stale.age / 60000);
+      applyBootstrapData(stale.data, { silent: false });
+      toast(
+        "Данные из кеша",
+        ageMin < 1 ? "Обновляю в фоне…" : `${ageMin} мин. назад · Обновляю…`,
+        "info",
+        2000
+      );
+    }
+  } else if (!isInit) {
+    // Для ручной и мутационных синхронизаций — показываем тост
+    toast("Синхронизация", "Запрашиваю данные…", "info", 0);
+  }
+
+  // ── Шаг 2: запрос к API (всегда, но визуально "фоновый" при isInit с кешем) ──
+  try {
+    const j = await apiGet({ action: "bootstrap" });
+    const d = j.data || {};
+
+    // Сохраняем в localStorage-кеш
+    cacheBootstrapSave(d);
+
+    applyBootstrapData(d);
+
+    if (!isInit) {
+      toast("Синхронизация", "Готово ✅", "ok", 1800);
+    } else {
+      // При init тихо обновили — коротко сообщаем
+      toast("Данные обновлены", "✅", "ok", 1200);
+    }
+  } catch (err) {
+    const msg = String(err.message || err);
+    if (isInit && cacheBootstrapLoadStale()) {
+      // Данные из кеша уже показаны — не блокируем интерфейс
+      toast("Нет связи", "Показаны кешированные данные", "warn", 3000);
+    } else {
+      toast("Ошибка синхронизации", msg, "error", 0);
+    }
+  }
+}
+
+// ── Фоновое обновление пока вкладка открыта ─────────────────────────
+let _bgSyncTimer = null;
+function startBgSync() {
+  if (_bgSyncTimer) return; // уже запущен
+  _bgSyncTimer = setInterval(async () => {
+    // Только если вкладка видима и пользователь авторизован
+    if (document.hidden) return;
+    const token = authGetToken_();
+    if (!token) return;
+    try {
+      const j = await apiGet({ action: "bootstrap" });
+      const d = j.data || {};
+      cacheBootstrapSave(d);
+      applyBootstrapData(d, { silent: true }); // тихо, без тоста
+    } catch { /* игнорируем сетевые ошибки в фоне */ }
+  }, CACHE_BG_INTERVAL_MS);
 }
 
 function defaultAccounts(){
@@ -3337,16 +3461,19 @@ function escAttr(s){ return esc(s).replaceAll("\n"," "); }
     }, 120);
   });
 
-if (!API_URL || API_URL.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")){
-  toast(
-    "Настрой API_URL",
-    "Вставь ссылку Web App Google Apps Script в константу API_URL (внизу файла). После этого нажми «Синхр.»",
-    "warn",
-    4500
-  );
-} else {
-  syncAll("init");
-}
+  if (!API_URL || API_URL.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")){
+    toast(
+      "Настрой API_URL",
+      "Вставь ссылку Web App Google Apps Script в константу API_URL (внизу файла). После этого нажми «Синхр.»",
+      "warn",
+      4500
+    );
+  } else {
+    // Загружаем данные (мгновенно из кеша + фоновый запрос к API)
+    await syncAll("init");
+    // Запускаем фоновое обновление раз в минуту
+    startBgSync();
+  }
 
 })();
 
