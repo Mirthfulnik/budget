@@ -294,10 +294,10 @@ const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 const ruMoney = (n, cur='RUB') => {
   const v = Number(n || 0);
   try{
-    return new Intl.NumberFormat('ru-RU', { style:'currency', currency: cur, maximumFractionDigits: 0 }).format(v);
+    return new Intl.NumberFormat('ru-RU', { style:'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   }catch(e){
     const sym = cur==='USD'?'$':cur==='EUR'?'€':cur==='CNY'?'¥':'₽';
-    return v.toLocaleString('ru-RU') + ' ' + sym;
+    return v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + sym;
   }
 };
 
@@ -1039,7 +1039,7 @@ function renderCanSpend(){
   el.innerHTML = rows;
   if (pill){
     const rub = Math.round(Number(bal.RUB||0));
-    pill.textContent = rub>=0 ? ("RUB " + rub.toLocaleString("ru-RU")) : ("RUB -" + Math.abs(rub).toLocaleString("ru-RU"));
+    pill.textContent = rub>=0 ? ("RUB " + rub.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : ("RUB -" + Math.abs(rub).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   }
 }
 
@@ -1265,7 +1265,7 @@ function renderSavingPlan(){
           <div class="progress"><i style="width:${pct}%; background: rgba(65,211,141,.85)"></i></div>
           <div class="d">
             ${left===0 ? "Цель закрыта ✅" :
-              `Рекомендация: ${perMonth ? (ruMoney(perMonth.toFixed(0))+" / мес") : "задай дедлайн для расчёта"}`
+              `Рекомендация: ${perMonth ? (ruMoney(perMonth)+" / мес") : "задай дедлайн для расчёта"}`
             }
           </div>
         </div>
