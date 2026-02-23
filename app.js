@@ -14,6 +14,7 @@
  * { key, action:"addOperation"|"deleteOperation"|... , data:{...} }
  */
 const API_URL = "https://functions.yandexcloud.net/d4erf4fjsbkvu1mr27il";
+const RECEIPT_OCR_URL = "https://functions.yandexcloud.net/d4ecuv3nah5abpbc5qnj";
 const API_KEY = ""; // если используешь ключ в GAS — вставь сюда
 
 
@@ -3695,3 +3696,222 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
+/**
+ * ============================================================
+ * OCR ПАТЧ — Finance 2026
+ * ============================================================
+ *
+ * ФАЙЛ 1: index.html
+ * ------------------
+ * Найди строку:
+ *   <h2>Новая операция</h2>
+ *   <span class="pill" id="pill-month"></span>
+ *
+ * Замени на:
+ *   <h2>Новая операция</h2>
+ *   <span class="pill" id="pill-month"></span>
+ *   <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек" style="margin-left:auto;font-size:18px;background:none;border:none;cursor:pointer;padding:2px 6px;">📷</button>
+ *   <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" style="display:none" />
+ *
+ * Найди строку:
+ *   <button class="btn" id="btn-add-op">Добавить операцию</button>
+ *
+ * Добавь ПЕРЕД ней:
+ *   <div id="receipt-preview-wrap" style="display:none;margin-bottom:10px">
+ *     <img id="receipt-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:contain;" />
+ *     <div id="receipt-ocr-status" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+ *   </div>
+ *
+ * ============================================================
+ *
+ * ФАЙЛ 2: app.js
+ * ------------------
+ * Найди строку:
+ *   const API_URL = "https://functions.yandexcloud.net/...";
+ *
+ * Добавь ПОСЛЕ неё:
+ *   const RECEIPT_OCR_URL = "https://functions.yandexcloud.net/ВСТАВЬ_URL_НОВОЙ_ФУНКЦИИ";
+ *
+ * Затем добавь весь блок ниже в КОНЕЦ файла app.js:
+ */
+
+// ============================================================
+//  OCR — сканирование чека
+// ============================================================
+
+const RECEIPT_CONFIDENCE_THRESHOLD = 0.65; // ниже — подсвечиваем жёлтым
+
+/**
+ * Сжимает изображение до maxPx по длинной стороне,
+ * конвертирует в JPEG и возвращает base64 без префикса.
+ */
+async function resizeImageToBase64(file, maxPx = 1200, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale  = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      resolve(dataUrl.split(",")[1]); // только base64, без префикса
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Не удалось прочитать изображение")); };
+    img.src = url;
+  });
+}
+
+/**
+ * Устанавливает поля формы по результату OCR.
+ * Переиспользует существующие render-функции приложения.
+ */
+function fillFormFromReceipt(parsed) {
+  // Тип — всегда расход
+  const typeSel = $("#op-type");
+  if (typeSel) { typeSel.value = "expense"; toggleOpFieldsByType_(); }
+
+  // Сумма
+  if (parsed.amount != null && parsed.amount > 0) {
+    $("#op-amount").value = parsed.amount;
+  }
+
+  // Дата
+  if (parsed.date) {
+    $("#op-date").value = parsed.date;
+  }
+
+  // Категория
+  const catSel = $("#op-category");
+  if (parsed.categoryId && catSel) {
+    catSel.value = parsed.categoryId;
+    renderSubcategorySelect(); // существующая функция
+    if (parsed.subcategoryId) {
+      const subSel = $("#op-subcategory");
+      if (subSel) subSel.value = parsed.subcategoryId;
+    }
+    // Подсвечиваем жёлтым если низкая уверенность
+    const isLowConfidence = (parsed.confidence ?? 1) < RECEIPT_CONFIDENCE_THRESHOLD;
+    catSel.style.outline = isLowConfidence ? "2px solid #f0a500" : "";
+    catSel.title = isLowConfidence
+      ? `AI не уверен в категории (уверенность: ${Math.round((parsed.confidence ?? 0) * 100)}%)`
+      : "";
+  }
+
+  // Комментарий
+  if (parsed.comment) {
+    $("#op-comment").value = parsed.comment;
+  }
+
+  // Валюта
+  if (parsed.currency) {
+    const cur = $("#op-currency");
+    if (cur) { cur.value = parsed.currency; cur._userTouched = true; }
+  }
+
+  saveLastOpPrefs_();
+}
+
+/**
+ * Сбрасывает подсветку категории когда пользователь меняет её вручную.
+ */
+function resetCategoryHighlight() {
+  const catSel = $("#op-category");
+  if (catSel) { catSel.style.outline = ""; catSel.title = ""; }
+}
+
+/**
+ * Главный оркестратор: file → resize → OCR → fillForm.
+ */
+async function parseReceiptFromFile(file) {
+  const addBtn    = $("#btn-add-op");
+  const statusEl  = $("#receipt-ocr-status");
+  const previewWrap = $("#receipt-preview-wrap");
+  const previewImg  = $("#receipt-preview-img");
+
+  // Показываем превью
+  if (previewWrap && previewImg) {
+    previewImg.src = URL.createObjectURL(file);
+    previewWrap.style.display = "";
+  }
+
+  // Блокируем форму
+  if (addBtn) { addBtn.disabled = true; addBtn.textContent = "Читаю чек…"; }
+  if (statusEl) statusEl.textContent = "Распознаю текст…";
+
+  try {
+    // 1. Resize
+    const imageBase64 = await resizeImageToBase64(file);
+
+    // 2. Промежуточный статус
+    if (statusEl) statusEl.textContent = "Определяю категорию…";
+
+    // 3. Вызов parseReceipt Function
+    const token = authGetToken_();
+    const resp  = await fetch(RECEIPT_OCR_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "X-Auth-Token": token },
+      body: JSON.stringify({
+        imageBase64,
+        categories:    state.categories    || [],
+        subcategories: state.subcategories || [],
+      }),
+    });
+
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || "Ошибка OCR");
+
+    // 4. Заполняем форму
+    fillFormFromReceipt(json.data);
+
+    // 5. Статус результата
+    const conf = json.data.confidence ?? 0;
+    if (statusEl) {
+      statusEl.textContent = json.warning
+        ? json.warning
+        : `Готово · уверенность: ${Math.round(conf * 100)}%`;
+      statusEl.style.color = conf < RECEIPT_CONFIDENCE_THRESHOLD ? "#f0a500" : "var(--muted)";
+    }
+
+    if (json.data.amount == null) {
+      toast("Чек", "Сумма не найдена — введи вручную", "warn", 3000);
+    }
+
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = "Ошибка: " + e.message; statusEl.style.color = "var(--danger, #e55)"; }
+    toast("Ошибка чека", e.message, "error", 0);
+  } finally {
+    // Разблокируем форму
+    if (addBtn) { addBtn.disabled = false; addBtn.textContent = "Добавить операцию"; }
+  }
+}
+
+// ─── Обработчики событий ─────────────────────────────────────────────
+
+// Кнопка 📷 открывает скрытый input
+const btnScan = $("#btn-scan-receipt");
+if (btnScan) {
+  btnScan.addEventListener("click", () => {
+    // Сбрасываем предыдущий выбор чтобы onChange сработал даже для того же файла
+    const inp = $("#receipt-input");
+    if (inp) { inp.value = ""; inp.click(); }
+  });
+}
+
+// Выбор файла → запуск OCR
+const receiptInput = $("#receipt-input");
+if (receiptInput) {
+  receiptInput.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    parseReceiptFromFile(file);
+  });
+}
+
+// Сброс подсветки при ручном изменении категории
+const opCategory = $("#op-category");
+if (opCategory) {
+  opCategory.addEventListener("change", resetCategoryHighlight);
+}
