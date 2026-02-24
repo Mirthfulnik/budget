@@ -295,12 +295,30 @@ const state = {
   lastBootstrapAt: null
 };
 
-// Initialize operations filters once per device (first-run default = last 7 days)
-try{
-  if (Core && Core.loadOpsFilters) {
-    state.opsFilters = Core.loadOpsFilters(localStorage, new Date());
-  }
-}catch(e){}
+// Инициализируем фильтр операций: последние 7 дней включая сегодня
+// Состояние сохраняется в localStorage между сессиями
+(function initOpsFiltersDefault(){
+  try {
+    const saved = localStorage.getItem("finance2026_ops_filters");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Базовая валидация
+      if (parsed && typeof parsed === "object" && "type" in parsed) {
+        state.opsFilters = parsed;
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Первый запуск — дефолт: последние 7 дней
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const from  = new Date(today);
+  from.setDate(from.getDate() - 6); // -6 дней + сегодня = 7 дней
+  const pad = n => String(n).padStart(2, "0");
+  const toISO = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  state.opsFilters = { type: "all", from: toISO(from), to: toISO(today), acc: "all" };
+})();
 
 
 /**
@@ -840,16 +858,21 @@ function openOpsFilterModal(){
       acc:  $("#mf-acc")?.value  || "all"
     };
     closeModal();
-    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
-    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
+    try { localStorage.setItem("finance2026_ops_filters", JSON.stringify(state.opsFilters)); } catch(e){}
     updateOpsFilterBtnState();
     renderOperations();
   }, {once:true});
 
   $("#mf-reset").addEventListener("click", ()=>{
-    state.opsFilters = (Core && Core.defaultOpsFiltersLast7Days) ? Core.defaultOpsFiltersLast7Days(new Date()) : { type:"all", from:"", to:"", acc:"all" };
+    // Сброс = последние 7 дней включая сегодня
+    const _now   = new Date();
+    const _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+    const _from  = new Date(_today); _from.setDate(_from.getDate() - 6);
+    const _pad   = n => String(n).padStart(2, "0");
+    const _iso   = d => `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`;
+    state.opsFilters = { type: "all", from: _iso(_from), to: _iso(_today), acc: "all" };
     closeModal();
-    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
+    try { localStorage.setItem("finance2026_ops_filters", JSON.stringify(state.opsFilters)); } catch(e){}
     updateOpsFilterBtnState();
     renderOperations();
   }, {once:true});
@@ -1386,8 +1409,7 @@ function renderOperations(){
   ops.sort((a,b)=>opTimeMs_(b)-opTimeMs_(a));
 
 if (!ops.length){
-    $("#ops-view").innerHTML = `<div class="muted">Пока нет операций. Добавь первую сверху.</div>`;
-    ensureToggle("ops-view");
+    $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период. Измени фильтр (🔍) или добавь операцию.</div>`;
     return;
   }
 
@@ -1447,7 +1469,6 @@ if (!ops.length){
   }).join("");
 
   $("#ops-view").innerHTML = html;
-  ensureToggle("ops-view");
 }
 
 function renderSavingPlan(){
