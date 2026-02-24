@@ -83,14 +83,18 @@
         <div id="quote-day-text" style="font-weight:850; line-height:1.35">—</div>
         <div id="quote-day-author" class="muted" style="margin-top:8px"></div>
       </div>
-<div class="grid cols2">
-        <div class="card opCard">
-          <div class="cardTitle">
-            <h2>Новая операция</h2>
-              <span class="pill" id="pill-month"></span>
-                <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек" style="margin-left:auto;font-size:18px;background:none;border:none;cursor:pointer;padding:2px 6px;">📷</button>
-                <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" style="display:none" />
-          </div>
+      <!-- 2. НОВАЯ ОПЕРАЦИЯ -->
+      <div class="card opCard">
+        <div class="cardTitle">
+          <h2>Новая операция</h2>
+          <span class="pill" id="pill-month"></span>
+          <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек" style="font-size:18px;background:none;border:none;cursor:pointer;padding:2px 6px;">📷</button>
+          <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" style="display:none" />
+          <button class="icon-btn op-form-toggle" id="btn-toggle-op-form" title="Развернуть / свернуть форму" aria-expanded="false">▸</button>
+        </div>
+
+        <!-- тело формы: скрыто по умолчанию -->
+        <div id="op-form-body" style="display:none">
           <div class="row">
             <div class="field">
               <label>Тип</label>
@@ -128,25 +132,25 @@
               </select>
             </div>
           </div>
-            <div class="row" id="op-transfer-row" style="display:none">
-                <div class="field">
-                <label>Откуда (счёт списания)</label>
-                <select id="op-from-account"></select>
-              </div>
-              <div class="field">
-                <label>Куда (счёт зачисления)</label>
-                <select id="op-to-account"></select>
-              </div>
-                <div class="field">
-                <label>Курс</label>
-                <input id="op-fx-rate" type="number" inputmode="decimal" placeholder="0" />
-          <div id="fx-hint" class="fxHint"></div>
-              </div>
-              <div class="field">
-                <label>Сумма зачисления</label>
-                <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" />
-              </div>
+          <div class="row" id="op-transfer-row" style="display:none">
+            <div class="field">
+              <label>Откуда (счёт списания)</label>
+              <select id="op-from-account"></select>
             </div>
+            <div class="field">
+              <label>Куда (счёт зачисления)</label>
+              <select id="op-to-account"></select>
+            </div>
+            <div class="field">
+              <label>Курс</label>
+              <input id="op-fx-rate" type="number" inputmode="decimal" placeholder="0" />
+              <div id="fx-hint" class="fxHint"></div>
+            </div>
+            <div class="field">
+              <label>Сумма зачисления</label>
+              <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" />
+            </div>
+          </div>
           <div class="row op-date-row">
             <div class="field">
               <label>Дата</label>
@@ -157,76 +161,39 @@
               <input id="op-comment" type="text" placeholder="необязательно" />
             </div>
           </div>
-          <div id="receipt-preview-wrap" style="display:none;margin-bottom:10px">
+          <div id="receipt-preview-wrap" style="display:none;margin-top:12px;margin-bottom:4px">
             <div style="position:relative;display:inline-block;max-width:100%">
               <img id="receipt-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:contain;display:block;" />
               <button id="btn-clear-receipt" title="Удалить чек" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.55);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:1;padding:0;">✕</button>
             </div>
             <div id="receipt-ocr-status" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
           </div>
-          <button class="btn" id="btn-add-op">Добавить операцию</button>
-          <div class="hint" style="margin-top:8px">
-            Удаление операции — через крестик в списке ниже (с подтверждением).
-          </div>
-        </div>
-        <div class="card">
-          <div class="cardTitle">
-            <h2>Лимиты (месяц)</h2>
-            <span class="pill" id="pill-limits"></span>
-          </div>
-          <div id="limits-view" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Лимиты хранятся в Google Таблице, но настраиваются в разделе «Настройки».
-          </div>
+          <button class="btn" id="btn-add-op" style="margin-top:14px">Добавить операцию</button>
         </div>
       </div>
+
+      <!-- 3. ОПЕРАЦИИ -->
       <div class="card">
         <div class="cardTitle">
           <h2>Операции</h2>
-          <div class="row" style="flex:0 0 auto; gap:8px">
-            <button class="btn inline small ghost" id="btn-refresh">Обновить</button>
-          </div>
+          <button class="icon-btn ops-filter-btn" id="btn-ops-filter" title="Фильтры">🔍</button>
         </div>
-        
-        <div class="opsFiltersGrid" id="ops-filters">
-          <div class="field">
-            <label for="ops-filter-type">Тип</label>
-            <select id="ops-filter-type" class="input">
-              <option value="all">Все</option>
-              <option value="expense">Расходы</option>
-              <option value="income">Доходы</option>
-              <option value="transfer">Переводы</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="ops-filter-from">С</label>
-            <input id="ops-filter-from" class="input" type="date">
-          </div>
-
-          <div class="field">
-            <label for="ops-filter-to">По</label>
-            <input id="ops-filter-to" class="input" type="date">
-          </div>
-
-          <div class="field">
-            <label for="ops-filter-account">Счёт</label>
-            <select id="ops-filter-account" class="input">
-              <option value="all">Все счета</option>
-            </select>
-          </div>
-
-          <div class="field opsFiltersActions">
-            <button class="btn inline small ghost" id="ops-filter-reset" style="width:100%">Сброс</button>
-          </div>
-        </div>
-
         <div id="ops-view"></div>
       </div>
+
+      <!-- 4. ЛИМИТЫ -->
+      <div class="card">
+        <div class="cardTitle">
+          <h2>Лимиты (месяц)</h2>
+          <span class="pill" id="pill-limits"></span>
+        </div>
+        <div id="limits-view" class="list"></div>
+      </div>
+
+      <!-- 5. ПЛАН НАКОПЛЕНИЙ -->
       <div class="card">
         <div class="cardTitle">
           <h2>План накоплений на ключевые события</h2>
-          <span class="pill">по целям</span>
         </div>
         <div id="saving-plan" class="list"></div>
       </div>
@@ -270,16 +237,14 @@
         <div class="card">
           <div class="cardTitle">
             <h2>Динамика (доходы/расходы/баланс)</h2>
-            <span class="pill">столбцы</span>
           </div>
           <div class="canvasWrap"><canvas id="bar-chart"></canvas></div>
-          <div class="hint">Наведи (ПК) или нажми (телефон) на столбец, чтобы увидеть значения.</div>
+          <button class="help-btn" data-help="Наведи (ПК) или нажми (телефон) на столбец, чтобы увидеть значения за период." aria-label="Подсказка">❓</button>
         </div>
 
         <div class="card">
           <div class="cardTitle">
             <h2>Структура по категориям</h2>
-            <span class="pill">круг</span>
           </div>
           <div class="row">
             <div class="pieCol" style="flex:1 1 300px">
@@ -293,7 +258,7 @@
               <div class="pieLegend" id="pie-income-legend"></div>
             </div>
           </div>
-          <div class="hint">Нажми на сектор или на элемент легенды, чтобы увидеть сумму и долю.</div>
+          <button class="help-btn" data-help="Нажми на сектор или на элемент легенды, чтобы увидеть сумму и долю категории." aria-label="Подсказка">❓</button>
         </div>
       </div>
 
@@ -301,7 +266,7 @@
         <div class="card">
           <div class="cardTitle">
             <h2>Структура по подкатегориям</h2>
-            <span class="pill">выбранная категория</span>
+            <button class="help-btn" data-help="Показывает распределение по подкатегориям для выбранной категории в текущем периоде." aria-label="Подсказка">❓</button>
           </div>
           <div class="row">
             <div class="field" style="flex:1 1 260px">
@@ -309,7 +274,6 @@
               <select id="dash-subcat-category"></select>
             </div>
           </div>
-          <div class="hint" style="margin-top:10px">Показывает распределение по подкатегориям для выбранной категории в текущем периоде.</div>
           <div class="hr"></div>
           <div id="subcat-list" class="list"></div>
         </div>
@@ -317,10 +281,9 @@
         <div class="card">
           <div class="cardTitle">
             <h2>Структура по валютам</h2>
-            <span class="pill">счета</span>
+            <button class="help-btn" data-help="Показывает текущие остатки по каждому счёту, сгруппированные по валютам. Балансы считаются по операциям." aria-label="Подсказка">❓</button>
           </div>
           <div id="currency-structure" class="list"></div>
-          <div class="hint">Показывает остатки по счетам, сгруппированные по валютам (расчёт по операциям в выбранной валюте).</div>
         </div>
       </div>
 
@@ -328,7 +291,6 @@
         <div class="card">
           <div class="cardTitle">
             <h2>ТОП категорий расходов</h2>
-            <span class="pill">топ-5</span>
           </div>
           <div id="top-expense" class="list"></div>
         </div>
@@ -336,7 +298,6 @@
         <div class="card">
           <div class="cardTitle">
             <h2>ТОП категорий доходов</h2>
-            <span class="pill">топ-5</span>
           </div>
           <div id="top-income" class="list"></div>
         </div>
@@ -352,10 +313,7 @@
     <div class="card">
       <div class="cardTitle">
         <h2>Мотивационная шкала (доход)</h2>
-        <span class="pill">столбчатая</span>
-      </div>
-      <div class="hint" style="margin-bottom:8px">
-        Минимальный порог: 160 000 ₽. Этапы можно менять в «Настройки → Мотивационная шкала: этапы».
+        <button class="help-btn" data-help="Минимальный порог: 160 000 ₽. Этапы можно менять в разделе «Настройки → Мотивационная шкала: этапы»." aria-label="Подсказка">❓</button>
       </div>
       <div class="canvasWrap">
         <canvas id="motivation-bar"></canvas>
@@ -398,18 +356,13 @@
             <button class="btn inline small" id="btn-new-cat">+ Категория</button>
           </div>
           <div id="cats-list" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Список категорий хранится в Google Таблице, но управляется отсюда.
-          </div>
         </div>
         
         <div class="card">
           <div class="cardTitle">
             <h2>Подкатегории</h2>
             <button class="btn inline small" id="btn-new-subcat">+ Подкатегория</button>
-          </div>
-          <div class="hint" style="margin-bottom:10px">
-            Подкатегории привязываются к существующим категориям (доход/расход). На «Пульте» можно выбирать категорию + подкатегорию.
+            <button class="help-btn" data-help="Подкатегории привязываются к категориям (доход/расход). При добавлении операции можно выбрать категорию + подкатегорию." aria-label="Подсказка">❓</button>
           </div>
           <div id="subcats-list" class="list"></div>
         </div>
@@ -420,9 +373,6 @@
             <button class="btn inline small" id="btn-new-acc">+ Счёт</button>
           </div>
           <div id="accounts-list" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            «Счета» — это откуда/куда идут деньги (карта, наличные, вклад и т. п.). Список хранится в Google Таблице, но настраивается здесь.
-          </div>
         </div>
 
 
@@ -432,9 +382,6 @@
             <button class="btn inline small" id="btn-new-limit">+ Лимит</button>
           </div>
           <div id="limits-settings" class="list"></div>
-          <div class="hint" style="margin-top:10px">
-            Лимиты сохраняются в Google Таблице, редактирование — через сайт.
-          </div>
         </div>
       </div>
 
@@ -451,9 +398,7 @@
           <div class="cardTitle">
             <h2>Мотивации (цитаты)</h2>
             <button class="btn inline small" id="btn-new-quote">+ Цитата</button>
-          </div>
-          <div class="hint" style="margin-bottom:10px">
-            В приложении показывается «цитата дня». Можно добавлять свои и удалять.
+            <button class="help-btn" data-help="В приложении показывается одна «Цитата дня» — она выбирается из этого списка. Можно добавлять свои и удалять." aria-label="Подсказка">❓</button>
           </div>
           <div id="quotes-list" class="list"></div>
         </div>
@@ -543,6 +488,14 @@
 
   </form>
 </div>
+
+  <!-- HELP POPUP (П5) -->
+  <div id="help-popup" class="helpPopup" role="tooltip" aria-live="polite" style="display:none">
+    <div class="helpPopupInner">
+      <div class="helpPopupText" id="help-popup-text"></div>
+      <button class="helpPopupClose" id="help-popup-close" aria-label="Закрыть подсказку">✕</button>
+    </div>
+  </div>
 
   <script type="module" src="./app.js"></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
