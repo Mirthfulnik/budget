@@ -712,6 +712,9 @@ function showPage(name){
   if (name==="dashboard") renderDashboard();
   if (name==="goals") renderGoals();
   if (name==="settings") renderSettings();
+
+  // Инициализируем кнопки collapse после перехода
+  initSectionToggles();
 }
 $$(".btnNav").forEach(btn=>{
   const p = btn.getAttribute("data-page");
@@ -738,8 +741,6 @@ function setOpFormOpen(open){
 
   try { localStorage.setItem("finance2026_op_form_open", open ? "1" : "0"); } catch(e){}
 }
-
-// Восстанавливаем состояние из localStorage
 (function restoreOpFormState(){
   try {
     const saved = localStorage.getItem("finance2026_op_form_open");
@@ -757,6 +758,73 @@ if (_btnToggleOpForm){
 function ensureOpFormOpen(){
   if (!state.ui.opFormOpen) setOpFormOpen(true);
 }
+
+/**
+ * ============================
+ *  UNIVERSAL SECTION TOGGLE
+ *  Обрабатывает все .section-toggle кнопки
+ * ============================
+ */
+function setupSectionToggle(btnId, bodyId, { defaultOpen = true } = {}) {
+  const btn  = $("#" + btnId);
+  const body = $("#" + bodyId);
+  if (!btn || !body) return;
+
+  // Восстанавливаем из localStorage
+  const storageKey = "finance2026_section_" + btnId;
+  let isOpen = defaultOpen;
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved !== null) isOpen = saved === "1";
+  } catch(e) {}
+
+  function apply(open) {
+    isOpen = open;
+    body.style.display = open ? "" : "none";
+    btn.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open));
+    btn.textContent = open ? "▾" : "▸";
+    try { localStorage.setItem(storageKey, open ? "1" : "0"); } catch(e) {}
+  }
+
+  apply(isOpen);
+  btn.addEventListener("click", () => apply(!isOpen));
+}
+
+// Операции — дополнительно кнопка "Свернуть" внизу списка
+function setupOpsToggle() {
+  const btn      = $("#btn-toggle-ops");
+  const body     = $("#ops-body");
+  if (!btn || !body) return;
+
+  const storageKey = "finance2026_section_btn-toggle-ops";
+  let isOpen = true;
+  try { const s = localStorage.getItem(storageKey); if (s !== null) isOpen = s === "1"; } catch(e) {}
+
+  function apply(open) {
+    isOpen = open;
+    body.style.display = open ? "" : "none";
+    btn.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open));
+    btn.textContent = open ? "▾" : "▸";
+    try { localStorage.setItem(storageKey, open ? "1" : "0"); } catch(e) {}
+  }
+
+  apply(isOpen);
+  btn.addEventListener("click", () => apply(!isOpen));
+}
+
+// Инициализируем все toggles
+(function initSectionToggles() {
+  setupSectionToggle("btn-toggle-goals",            "goals-body");
+  setupSectionToggle("btn-toggle-cats",             "cats-body");
+  setupSectionToggle("btn-toggle-subcats",          "subcats-body");
+  setupSectionToggle("btn-toggle-accounts",         "accounts-body");
+  setupSectionToggle("btn-toggle-limits-settings",  "limits-settings-body");
+  setupSectionToggle("btn-toggle-stages",           "stages-body");
+  setupSectionToggle("btn-toggle-quotes",           "quotes-body");
+  setupOpsToggle();
+})();
 
 /**
  * ============================
@@ -840,6 +908,72 @@ const _btnOpsFilter = $("#btn-ops-filter");
 if (_btnOpsFilter){
   _btnOpsFilter.addEventListener("click", openOpsFilterModal);
 }
+
+/**
+ * ============================
+ *  OPS SECTION COLLAPSE
+ * ============================
+ */
+(function initOpsCollapse(){
+  const btn  = $("#btn-ops-collapse");
+  const view = $("#ops-view");
+  if (!btn || !view) return;
+
+  let opsOpen = true;
+
+  function setOpsOpen(open){
+    opsOpen = open;
+    view.style.display = open ? "" : "none";
+    const toggleBtn = document.getElementById("toggle-ops-view");
+    if (toggleBtn) toggleBtn.style.display = open ? "" : "none";
+    btn.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", String(open));
+    btn.textContent = open ? "▾" : "▸";
+  }
+
+  btn.addEventListener("click", ()=> setOpsOpen(!opsOpen));
+})();
+
+/**
+ * ============================
+ *  UNIVERSAL SECTION COLLAPSE (Settings + Goals)
+ * ============================
+ * Каждый .btn-collapse[data-body] сворачивает/разворачивает
+ * элемент с id = data-body.
+ *
+ * В HTML:
+ *   <button class="btn-collapse" data-body="cats-body">▸</button>
+ *   <div id="cats-body">…</div>
+ */
+function initSectionToggles(){
+  $$(".btn-collapse[data-body]").forEach(btn=>{
+    // Уже инициализирован?
+    if (btn.dataset.init) return;
+    btn.dataset.init = "1";
+
+    const bodyId = btn.getAttribute("data-body");
+    const body   = document.getElementById(bodyId);
+    if (!body) return;
+
+    let open = btn.getAttribute("aria-expanded") !== "false"; // default open
+    body.style.display = open ? "" : "none";
+    btn.textContent    = open ? "▾" : "▸";
+    btn.classList.toggle("open", open);
+
+    btn.addEventListener("click", ()=>{
+      open = !open;
+      body.style.display = open ? "" : "none";
+      btn.textContent    = open ? "▾" : "▸";
+      btn.classList.toggle("open", open);
+      btn.setAttribute("aria-expanded", String(open));
+    });
+  });
+}
+
+// Запускаем после рендера страниц
+document.addEventListener("pageShown", initSectionToggles);
+// Также сразу при загрузке
+initSectionToggles();
 
 /**
  * ============================
@@ -4107,3 +4241,16 @@ const btnClear = $("#btn-clear-receipt");
 if (btnClear) {
   btnClear.addEventListener("click", clearReceipt);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
