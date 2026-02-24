@@ -96,7 +96,9 @@
 
         <!-- тело формы: скрыто по умолчанию -->
         <div id="op-form-body" style="display:none">
-          <div class="row">
+
+          <!-- Ряд 1: Тип + Сумма -->
+          <div class="op-form-row">
             <div class="field">
               <label>Тип</label>
               <select id="op-type">
@@ -110,7 +112,9 @@
               <input id="op-amount" type="number" inputmode="decimal" placeholder="0" />
             </div>
           </div>
-          <div class="row">
+
+          <!-- Ряд 2: Категория + Подкатегория -->
+          <div class="op-form-row">
             <div class="field">
               <label>Категория</label>
               <select id="op-category"></select>
@@ -119,6 +123,10 @@
               <label>Подкатегория</label>
               <select id="op-subcategory"></select>
             </div>
+          </div>
+
+          <!-- Ряд 3: Счёт + Валюта -->
+          <div class="op-form-row">
             <div class="field">
               <label>Счёт</label>
               <select id="op-account"></select>
@@ -133,7 +141,9 @@
               </select>
             </div>
           </div>
-          <div class="row" id="op-transfer-row" style="display:none">
+
+          <!-- Ряд 4: Перевод (скрыт по умолчанию) -->
+          <div class="op-form-row" id="op-transfer-row" style="display:none">
             <div class="field">
               <label>Откуда (счёт списания)</label>
               <select id="op-from-account"></select>
@@ -152,7 +162,9 @@
               <input id="op-amount-to" type="number" inputmode="decimal" placeholder="0" />
             </div>
           </div>
-          <div class="row op-date-row">
+
+          <!-- Ряд 5: Дата + Комментарий -->
+          <div class="op-form-row op-date-row">
             <div class="field">
               <label>Дата</label>
               <input id="op-date" type="date" />
@@ -162,14 +174,17 @@
               <input id="op-comment" type="text" placeholder="необязательно" />
             </div>
           </div>
-          <div id="receipt-preview-wrap" style="display:none;margin-top:12px;margin-bottom:4px">
+
+          <!-- Превью чека -->
+          <div id="receipt-preview-wrap" style="display:none;margin-top:10px;margin-bottom:4px">
             <div style="position:relative;display:inline-block;max-width:100%">
               <img id="receipt-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:contain;display:block;" />
               <button id="btn-clear-receipt" title="Удалить чек" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.55);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:1;padding:0;">✕</button>
             </div>
             <div id="receipt-ocr-status" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
           </div>
-          <button class="btn" id="btn-add-op" style="margin-top:14px">Добавить операцию</button>
+
+          <button class="btn" id="btn-add-op" style="margin-top:12px">Добавить операцию</button>
         </div>
       </div>
 
@@ -266,11 +281,9 @@
           <div class="cardTitle">
             <h2>Структура по подкатегориям</h2>
           </div>
-          <div class="row">
-            <div class="field" style="flex:1 1 260px">
-              <label>Категория</label>
-              <select id="dash-subcat-category"></select>
-            </div>
+          <div class="field" style="margin-bottom:8px">
+            <label>Категория</label>
+            <select id="dash-subcat-category"></select>
           </div>
           <div class="hr hr-tight"></div>
           <div id="subcat-list" class="list"></div>
