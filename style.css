@@ -162,6 +162,18 @@
     .item .right{display:flex; align-items:center; gap:8px; flex-shrink:0}
     .item .t{font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .item .d{color:var(--muted); font-size:12px}
+/* Operations item layout (mobile-first readability) */
+.opRowTop{display:flex; align-items:center; gap:10px; min-width:0}
+.opTitle{font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.opMeta{color:var(--muted); font-size:12px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.opAmtMobile{display:none; font-weight:950; margin-left:auto}
+.opAmtDesk{display:block}
+@media (max-width: 560px){
+  .opAmtMobile{display:inline-flex}
+  .opAmtDesk{display:none}
+  .op-item .right{align-items:flex-start}
+  .op-item .left{gap:6px}
+}
     .tag{
       display:inline-flex; align-items:center;
       padding:3px 8px; border-radius:999px;
@@ -174,6 +186,7 @@
     .tag.expense{border-color: rgba(255,91,110,.35); color: rgba(255,91,110,.95)}
     .tag.transfer{border-color: rgba(255,204,102,.35); color: rgba(255,204,102,.95)}
     .hr{height:1px; background: rgba(255,255,255,.08); margin:12px 0}
+.hr-tight{ margin:8px 0; }
     .progress{
       height:10px; border-radius: 999px; background: rgba(255,255,255,.06);
       overflow:hidden; border:1px solid rgba(255,255,255,.06);
@@ -418,6 +431,9 @@
   .card > .field + .row,
   .card > .row + .field { margin-top: var(--row-gap-mob); }
   .field{ margin-bottom: var(--field-gap-mob); }
+
+  /* Reduce double spacing in stacked rows (gap + margin would be too big) */
+  .row > .field{ margin-bottom: 0; }
   label{ margin: 0 0 5px 2px; }
 
   /* Инпуты: стабильный размер + без переполнения */
@@ -535,8 +551,9 @@
 
 /* mobile override: keep proper spacing inside modals */
 @media (max-width: 560px){
-  .modalBody .field{ margin-bottom: 14px !important; }
-  .modalBody .row{ gap: 14px !important; }
+  .modalBody .field{ margin-bottom: 10px !important; }
+  .modalBody .row{ gap: 10px !important; }
+  .modalBody .row + .row{ margin-top: 4px !important; }
 }
 
 /* =========================
@@ -859,6 +876,7 @@
 }
 .authInput{
   width: 100%;
+  font-size: 16px; /* prevent mobile zoom */
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.06);
@@ -936,4 +954,15 @@
 /* disable background scroll when locked */
 html.auth-locked, body.auth-locked{
   overflow: hidden;
+}
+
+@media (max-width: 560px){
+  .hr-tight{ margin:6px 0; }
+}
+
+@media (max-width: 560px){
+  /* Goals: compact cards */
+  #page-goals .item{ padding:8px 10px; }
+  #page-goals .item .d{ line-height:1.2; }
+  #page-goals .progress{ height:8px; }
 }
