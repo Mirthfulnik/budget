@@ -1003,3 +1003,74 @@ html.auth-locked, body.auth-locked{
   #saving-plan .item .t{ font-size:13px; }
   #saving-plan .progress{ height:6px; margin:1px 0; }
 }
+
+/* === FIX 1: opCard — reduce vertical gaps on mobile === */
+@media (max-width: 560px){
+  .opCard .list{ gap:5px; }
+  .opCard .op-item{ padding:7px 8px; gap:6px; }
+  .opCard .op-date-header-row{ margin: 8px 0 4px !important; }
+}
+
+/* === FIX 2: op-amount under .d on mobile (place amount below meta line) === */
+/* Desktop: hide inline amount, show right-column amount */
+.op-amount-inline{ display: none; }
+.op-amount-desk{ display: block; }
+
+@media (max-width: 560px){
+  /* Mobile: show inline amount under .d, hide right-column amount */
+  .op-amount-inline{ display: block; font-weight:950; font-size:13px; margin-top:2px; }
+  .op-amount-desk{ display: none; }
+  .op-item .left{
+    flex:1 1 0;
+    min-width:0;
+  }
+  .op-item .right{
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  /* Move amount into left column below .d */
+  .op-item{
+    flex-wrap: nowrap;
+  }
+}
+
+/* === FIX 3: Dashboard subcat — remove gap between select and hr === */
+.card:has(#dash-subcat-category) .field{ margin-bottom: 0 !important; }
+.card:has(#subcat-list) .row{ margin-bottom: 0 !important; }
+#dash-subcat-category + * { /* nothing after select */ }
+.card:has(#subcat-list) .row + .hr,
+.card:has(#subcat-list) .field + .hr { margin-top: 4px !important; }
+@media (max-width: 560px){
+  .card:has(#dash-subcat-category) .field{ margin-bottom: 0 !important; }
+  .card:has(#subcat-list) .row{ margin-bottom: 0 !important; }
+}
+
+/* === FIX 4: ➕ inline small buttons 34x34 === */
+.btn.inline.small{
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+/* === FIX 5: Remove permanent highlight from btnNav sync === */
+.nav .btnNav.sync{
+  background: rgba(255,255,255,.05) !important;
+  border-color: rgba(255,255,255,.08) !important;
+  color: var(--muted) !important;
+}
+/* Only highlight sync when .active is explicitly added by JS */
+.nav .btnNav.sync.active{
+  color: var(--text) !important;
+  border-color: rgba(87,166,255,.35) !important;
+  background: rgba(87,166,255,.12) !important;
+}
+
+/* === FIX 6: Hide nav labels on mobile, keep only emoji === */
+@media (max-width: 560px){
+  .nav .btnNav .lbl{ display: none; }
+  .nav .btnNav{ gap: 0; }
+}
