@@ -162,6 +162,21 @@
     .item .right{display:flex; align-items:center; gap:8px; flex-shrink:0}
     .item .t{font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .item .d{color:var(--muted); font-size:12px}
+/* === Operation item layout === */
+.op-item{ align-items:flex-start; }
+.op-item .left{ flex:1 1 0; min-width:0; }
+.op-item .right{ flex-shrink:0; gap:6px; }
+.op-row-top{ display:flex; align-items:baseline; gap:6px; flex-wrap:nowrap; min-width:0; }
+.op-cat-name{ font-weight:800; font-size:13px; white-space:normal; word-break:break-word; line-height:1.3; }
+.op-sub{ font-weight:600; color:var(--muted); }
+.op-amount{ font-weight:950; white-space:nowrap; font-size:14px; }
+@media (max-width:560px){
+  .op-item{ gap:8px; padding:9px 9px; }
+  .op-item .right{ flex-direction:column; align-items:flex-end; gap:4px; }
+  .op-amount{ font-size:13px; margin-bottom:2px; }
+  .op-row-top{ flex-wrap:wrap; gap:4px; }
+  .op-cat-name{ font-size:13px; white-space:normal; }
+}
 /* Operations item layout (mobile-first readability) */
 .opRowTop{display:flex; align-items:center; gap:10px; min-width:0}
 .opTitle{font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -426,15 +441,19 @@
 ========================= */
 @media (max-width: 560px){
   /* Мобильный ритм через переменные */
-  .row{ gap: var(--field-gap-mob); }
+  .row{ gap: 8px; }
   .card > .row + .row,
   .card > .field + .row,
-  .card > .row + .field { margin-top: var(--row-gap-mob); }
-  .field{ margin-bottom: var(--field-gap-mob); }
+  .card > .row + .field { margin-top: 8px; }
+  .field{ margin-bottom: 8px; }
 
   /* Reduce double spacing in stacked rows (gap + margin would be too big) */
   .row > .field{ margin-bottom: 0; }
-  label{ margin: 0 0 5px 2px; }
+  label{ margin: 0 0 4px 2px; }
+  /* Форма новой операции — плотнее */
+  #op-form-body .field{ margin-bottom:6px; }
+  #op-form-body .row + .row{ margin-top:6px; }
+  #op-form-body .row{ gap:6px; }
 
   /* Инпуты: стабильный размер + без переполнения */
   input, select, textarea{
@@ -463,6 +482,9 @@
    DASHBOARD: currency block spacing
 ========================= */
 #currency-structure{ margin-bottom: 14px; }
+/* Subcat dashboard — no min-height when empty */
+#subcat-list:empty, #subcat-list{ min-height:0; }
+.card:has(#subcat-list) .field{ margin-bottom:8px; }
 #currency-structure + .hint{ margin-top: 16px !important; }
 
 /* .card.new-operation compact block removed — spacing now via CSS vars */
@@ -793,6 +815,15 @@
 .helpPopupClose:hover{ background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35); color: var(--danger); }
 
 /* === Op form toggle button === */
+/* === Op header buttons group === */
+.op-header-btns{
+  display:flex; align-items:center; gap:6px;
+  margin-left:auto; flex-shrink:0;
+}
+/* Выравниваем правый край по padding карточки */
+@media (max-width:560px){
+  .op-header-btns{ margin-right:0; }
+}
 .op-form-toggle{
   margin-left: auto;
   font-size: 16px;
@@ -962,7 +993,13 @@ html.auth-locked, body.auth-locked{
 
 @media (max-width: 560px){
   /* Goals: compact cards */
-  #page-goals .item{ padding:8px 10px; }
-  #page-goals .item .d{ line-height:1.2; }
-  #page-goals .progress{ height:8px; }
+  #page-goals .item{ padding:7px 10px; gap:8px; }
+  #page-goals .item .d{ line-height:1.2; font-size:11px; }
+  #page-goals .item .t{ font-size:13px; }
+  #page-goals .progress{ height:6px; margin:1px 0; }
+  /* Saving plan — same compact treatment */
+  #saving-plan .item{ padding:7px 10px; gap:8px; }
+  #saving-plan .item .d{ line-height:1.2; font-size:11px; }
+  #saving-plan .item .t{ font-size:13px; }
+  #saving-plan .progress{ height:6px; margin:1px 0; }
 }
