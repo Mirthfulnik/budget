@@ -4132,16 +4132,3 @@ const btnClear = $("#btn-clear-receipt");
 if (btnClear) {
   btnClear.addEventListener("click", clearReceipt);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
