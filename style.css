@@ -282,35 +282,73 @@
       border: 1px solid rgba(255,255,255,.08);
       backdrop-filter: blur(14px);
       display:flex; align-items:center; justify-content:space-between;
-      padding: 10px 10px;
+      padding: 8px 10px;
       z-index: 50;
       box-shadow: var(--shadow);
       max-width: 1100px;
       margin: 0 auto;
+      gap: 4px;
     }
+
+    /* Все кнопки навигации — единый стиль */
     .nav .btnNav{
-      flex:1 1 auto;
+      flex: 1 1 0;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:4px;
-      height:100%;
-      border-radius: 14px;
-      cursor:pointer;
+      gap: 4px;
+      height: 100%;
+      border-radius: 12px;
+      cursor: pointer;
       color: var(--muted);
-      user-select:none;
-      padding: 8px 6px;
-      border:1px solid transparent;
+      user-select: none;
+      padding: 6px 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+      min-width: 0;
     }
+    .nav .btnNav:active{ opacity: .75; }
+
+    /* Активная страница */
     .nav .btnNav.active{
       color: var(--text);
       border-color: rgba(87,166,255,.35);
       background: rgba(87,166,255,.12);
     }
-    .nav .btnNav .ico{font-size:18px}
-    .nav .btnNav .lbl{font-size:11px; font-weight:800; letter-spacing:.2px}
-    .nav .btnNav.sync{
-      flex: 0 0 120px;
-      background: rgba(255,255,255,.05);
-      border-color: rgba(255,255,255,.08);
+
+    .nav .btnNav .ico{ font-size: 20px; line-height: 1; }
+    .nav .btnNav .lbl{ font-size: 10px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
+
+    /* Разделитель перед кнопкой синхронизации */
+    .nav .navSep{
+      width: 1px;
+      height: 36px;
+      background: rgba(255,255,255,.10);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    /* Кнопка синхронизации — такая же как остальные, без особого выделения */
+    .nav .btnSync{
+      flex: 0 0 52px;
+    }
+
+    /* Состояние синхронизации в процессе */
+    .nav .btnSync.syncing{
+      color: var(--warn);
+    }
+    .nav .btnSync.syncing .ico{
+      animation: spin-sync 1s linear infinite;
+    }
+    @keyframes spin-sync{
+      to { transform: rotate(360deg); }
+    }
+
+    /* Мобильный: скрываем подписи, оставляем только эмодзи */
+    @media (max-width: 560px){
+      .nav .btnNav .lbl{ display: none; }
+      .nav .btnNav{ gap: 0; min-width: 44px; }
+      .nav .btnSync{ flex: 0 0 48px; }
+      .nav .navSep{ margin: 0; }
     }
 
     /* sync toast/modal */
@@ -354,8 +392,6 @@
       .canvasWrap{height:240px}
       .subcatWrap{height:130px}
       .subcatWrap canvas{height:130px}
-
-      .nav .btnNav.sync{flex:0 0 95px}
     }
 
     
@@ -1078,24 +1114,6 @@ html.auth-locked, body.auth-locked{
   border-radius: 10px;
 }
 
-/* === FIX 5: Remove permanent highlight from btnNav sync === */
-.nav .btnNav.sync{
-  background: rgba(255,255,255,.05) !important;
-  border-color: rgba(255,255,255,.08) !important;
-  color: var(--muted) !important;
-}
-/* Only highlight sync when .active is explicitly added by JS */
-.nav .btnNav.sync.active{
-  color: var(--text) !important;
-  border-color: rgba(87,166,255,.35) !important;
-  background: rgba(87,166,255,.12) !important;
-}
-
-/* === FIX 6: Hide nav labels on mobile, keep only emoji === */
-@media (max-width: 560px){
-  .nav .btnNav .lbl{ display: none; }
-  .nav .btnNav{ gap: 0; }
-}
 
 /* =============================================
    FIX: Компактные KPI-карточки на экране "Цели"
