@@ -288,6 +288,14 @@ const state = {
   lastBootstrapAt: null
 };
 
+// Initialize operations filters once per device (first-run default = last 7 days)
+try{
+  if (Core && Core.loadOpsFilters) {
+    state.opsFilters = Core.loadOpsFilters(localStorage, new Date());
+  }
+}catch(e){}
+
+
 /**
  * ============================
  *  UTIL
@@ -295,6 +303,10 @@ const state = {
  */
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+// Testable core utilities (loaded via core.js)
+const Core = (typeof window !== "undefined" && window.FinanceCore) ? window.FinanceCore : null;
+
 const ruMoney = (n, cur='RUB') => {
   const v = Number(n || 0);
   try{
@@ -824,13 +836,16 @@ function openOpsFilterModal(){
       acc:  $("#mf-acc")?.value  || "all"
     };
     closeModal();
+    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
+    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
     updateOpsFilterBtnState();
     renderOperations();
   }, {once:true});
 
   $("#mf-reset").addEventListener("click", ()=>{
-    state.opsFilters = { type:"all", from:"", to:"", acc:"all" };
+    state.opsFilters = (Core && Core.defaultOpsFiltersLast7Days) ? Core.defaultOpsFiltersLast7Days(new Date()) : { type:"all", from:"", to:"", acc:"all" };
     closeModal();
+    if (Core && Core.saveOpsFilters) Core.saveOpsFilters(localStorage, state.opsFilters);
     updateOpsFilterBtnState();
     renderOperations();
   }, {once:true});
@@ -1020,7 +1035,7 @@ function normalizeState(){
   $("#op-date").value = $("#op-date").value || d;
 
   // pill month
-  $("#pill-month").textContent = new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
+  $("#pill-month").textContent = (Core && Core.fmtMonthYear) ? Core.fmtMonthYear(new Date()) : new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
 }
 
 /**
@@ -1303,21 +1318,38 @@ const catsWithLimit = new Set(
     const barColor = (limitAmount===0) ? "rgba(255,255,255,.25)" : (spent>limitAmount ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
     const status = (limitAmount===0) ? "Лимит не задан" : (spent>limitAmount ? "Превышено" : "Потрачено");
 
-    return `
-      <div class="item">
-        <div class="left">
-          <div class="t">${esc(cat.name)}</div>
-          <div class="d">${esc(status)} · ${limitAmount===0 ? "" : `${ruMoney(spent)} / ${ruMoney(limitAmount)}`}</div>
-          <div class="progress" aria-label="progress">
-            <i style="width:${pct}%; background:${barColor}"></i>
+    const jsId = String(o.id||"").replace(/\/g,"\\").replace(/'/g,"\'");
+      const catName = cat?.name || "Без категории";
+      const itemHtml = (Core && Core.renderOperationItemHTML)
+        ? Core.renderOperationItemHTML({
+            op: o,
+            catName,
+            subName: sub?.name || "",
+            accName: acc?.name || "Счёт",
+            currency: cur,
+            amountText: amt,
+            sign,
+            note,
+            editOnclick: `openOpEdit('${jsId}')`,
+            deleteOnclick: `confirmDeleteOp('${jsId}')`,
+          })
+        : `
+        <div class="item">
+          <div class="left">
+            <div class="t">
+              <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
+              <span style="margin-left:6px">${esc(catName)}${sub ? ` / ${esc(sub.name)}` : ""}</span>
+            </div>
+            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)} · ${note ? esc(note) : "—"}</div>
+          </div>
+          <div class="right">
+            <div style="font-weight:950">${sign} ${amt}</div>
+            <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
+            <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
           </div>
         </div>
-        <div class="right" style="flex-direction:column; align-items:flex-end">
-          <div style="font-weight:900">${limitAmount===0 ? "—" : (remaining>=0 ? ruMoney(remaining) : "−"+ruMoney(Math.abs(remaining)))}</div>
-          <button class="icon-btn edit" aria-label="Настроить лимит" onclick="openLimitForCategory('${esc(cat.id)}')">⚙️</button>
-        </div>
-      </div>
-    `;
+      `;
+      return itemHtml;
   });
 
   $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
@@ -1408,7 +1440,7 @@ if (!ops.length){
       `;
     }).join("");
 
-    const pretty = new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
+    const pretty = (Core && Core.fmtOpDateHeader) ? Core.fmtOpDateHeader(new Date(d+"T00:00:00")) : new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
     const totals = computeDayTotals_(dayOps);
     return `
       <div class="op-date-header-row" style="margin: 14px 0 8px;">
@@ -1975,11 +2007,13 @@ function renderDashboard(){
 
 function bucketLabel(d, kind){
   const x = new Date(d);
-  if (kind==="year") return x.toLocaleString("ru-RU", {month:"short"});
-  if (kind==="month") return x.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
-  if (kind==="week") return x.toLocaleDateString("ru-RU", {weekday:"short"});
-  // custom: day+month
-  return x.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
+  const mShort = (Core && Core.fmtMonthShort) ? Core.fmtMonthShort(x) : x.toLocaleString("ru-RU", {month:"short"});
+    const dmShort = (Core && Core.fmtDayMonth) ? Core.fmtDayMonth(x) : x.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
+  const wd = (Core && Core.fmtWeekdayShort) ? Core.fmtWeekdayShort(x) : x.toLocaleDateString("ru-RU", {weekday:"short"});
+  if (kind==="year") return mShort;
+  if (kind==="month") return dmShort;
+  if (kind==="week") return String(wd).trim().replace(/\.+$/,"");
+  return dmShort;
 }
 
 function drawBarChart(canvas, from, to, ops){
@@ -2010,14 +2044,14 @@ function drawBarChart(canvas, from, to, ops){
     const e = new Date(to);
     let it = new Date(s);
     while (it<=e){
-      const lab = it.toLocaleString("ru-RU", {month:"short"});
+      const lab = (Core && Core.fmtMonthShort) ? Core.fmtMonthShort(it) : it.toLocaleString("ru-RU", {month:"short"});
       map.set(lab, {income:0, expense:0});
       buckets.push({key: lab});
       it.setMonth(it.getMonth()+1);
     }
     for (const o of ops){
       const d = new Date(o.date||o.createdAt);
-      const lab = d.toLocaleString("ru-RU", {month:"short"});
+      const lab = (Core && Core.fmtMonthShort) ? Core.fmtMonthShort(d) : d.toLocaleString("ru-RU", {month:"short"});
       const b = map.get(lab);
       if (!b) continue;
       if (o.type==="income") b.income += Number(o.amount||0);
@@ -2043,7 +2077,7 @@ function drawBarChart(canvas, from, to, ops){
       let it = new Date(from);
       let i=0;
       while (it<=to){
-        const lab = it.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
+        const lab = (Core && Core.fmtDayMonth) ? Core.fmtDayMonth(it) : it.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
         map.set(lab,{income:0, expense:0});
         buckets.push({key: lab, date: new Date(it)});
         it.setDate(it.getDate()+step);
@@ -2064,14 +2098,14 @@ function drawBarChart(canvas, from, to, ops){
     } else {
       let it = new Date(from);
       while (it<=to){
-        const lab = it.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
+        const lab = (Core && Core.fmtDayMonth) ? Core.fmtDayMonth(it) : it.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
         map.set(lab,{income:0, expense:0});
         buckets.push({key: lab});
         it.setDate(it.getDate()+1);
       }
       for (const o of ops){
         const d = new Date(o.date||o.createdAt);
-        const lab = d.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
+        const lab = (Core && Core.fmtDayMonth) ? Core.fmtDayMonth(d) : d.toLocaleDateString("ru-RU", {day:"2-digit", month:"short"});
         const b = map.get(lab);
         if (!b) continue;
         if (o.type==="income") b.income += Number(o.amount||0);
@@ -3654,7 +3688,7 @@ function escAttr(s){ return esc(s).replaceAll("\n"," "); }
  */
 (async function init(){
   // set default pills
-  $("#pill-month").textContent = new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
+  $("#pill-month").textContent = (Core && Core.fmtMonthYear) ? Core.fmtMonthYear(new Date()) : new Date().toLocaleString("ru-RU", {month:"long", year:"numeric"});
 
   // auth gate
   await authGate_();
