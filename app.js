@@ -1409,7 +1409,7 @@ function renderOperations(){
   ops.sort((a,b)=>opTimeMs_(b)-opTimeMs_(a));
 
 if (!ops.length){
-    $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период. Измени фильтр (🔍) или добавь операцию.</div>`;
+    $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период.</div>`;
     return;
   }
 
