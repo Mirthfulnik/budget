@@ -7,6 +7,12 @@
       --navH: 70px;
       --safeB: env(safe-area-inset-bottom, 0px);
       --safeT: env(safe-area-inset-top, 0px);
+
+      /* === Единый вертикальный ритм === */
+      --field-gap: 12px;       /* gap между .field внутри .row (десктоп) */
+      --field-gap-mob: 14px;   /* то же на мобильном */
+      --row-gap: 12px;         /* gap между .row блоками */
+      --row-gap-mob: 14px;
     }
     /* === Space under each page so fixed bottom-nav never overlaps content === */
     :root{
@@ -76,8 +82,12 @@
       margin:0; font-size:16px; letter-spacing:.2px;
     }
     .muted{color:var(--muted); font-size:13px}
-    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row{display:flex; gap:var(--field-gap); flex-wrap:wrap}
     .row > *{flex:1 1 160px; min-width:0}
+    /* Вертикальный отступ между рядами полей */
+    .card > .row + .row,
+    .card > .field + .row,
+    .card > .row + .field { margin-top: var(--row-gap); }
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:7px 10px; border-radius:999px;
@@ -127,7 +137,7 @@
     }
     textarea{min-height: 88px; resize: vertical;}
     label{display:block; font-size:12px; color:var(--muted); margin: 0 0 6px 2px}
-    .field{margin-bottom:10px; min-width:0}
+    .field{margin-bottom: var(--field-gap); min-width:0}
     .kpi{
       display:flex; flex-direction:column; gap:6px;
       padding:12px; border-radius: 14px;
@@ -402,38 +412,35 @@
    MOBILE POLISH (iOS/Android)
 ========================= */
 @media (max-width: 560px){
-  /* tighter vertical rhythm inside forms */
-  .row{ gap:10px !important; }
-  /* prevent flex children stretching vertically in column layout */
-  .row > *{ flex: 0 0 auto !important; }
+  /* Мобильный ритм через переменные */
+  .row{ gap: var(--field-gap-mob); }
+  .card > .row + .row,
+  .card > .field + .row,
+  .card > .row + .field { margin-top: var(--row-gap-mob); }
+  .field{ margin-bottom: var(--field-gap-mob); }
+  label{ margin: 0 0 5px 2px; }
 
-  .field{ margin-bottom:0 !important; }
-  label{ margin:0 0 4px 2px !important; }
-
-  /* controls: stable sizing + no weird overflow */
+  /* Инпуты: стабильный размер + без переполнения */
   input, select, textarea{
-    width:100%;
-    max-width:100%;
-    box-sizing:border-box;
-    min-height:44px; /* iOS recommended touch target */
-    border-radius:12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 44px; /* iOS touch target */
+    border-radius: 12px;
   }
-  textarea{ min-height:96px; }
+  textarea{ min-height: 96px; }
 
-  /* cards: slightly tighter look on mobile */
+  /* cards: чуть скруглённее на мобильном */
   .card{ border-radius: 16px; }
 
-  /* Sticky add button inside the New operation card */
+  /* Sticky кнопка добавления операции */
   .opCard{ overflow: visible !important; }
   #btn-add-op{
     position: sticky;
     bottom: calc(var(--navH) + var(--safeB) + 12px);
     z-index: 6;
-    margin-top: 14px;
+    margin-top: 16px;
   }
-
-  /* make sure hint doesn't stick to the button */
-  #btn-add-op + .hint{ margin-top: 10px !important; }
 }
 
 /* =========================
@@ -442,39 +449,7 @@
 #currency-structure{ margin-bottom: 14px; }
 #currency-structure + .hint{ margin-top: 16px !important; }
 
-    /* =========================
-   MOBILE: NEW OPERATION COMPACT
-========================= */
-@media (max-width: 640px) {
-
-  /* Карточка "Новая операция" — компактнее */
-  .card.new-operation {
-    padding: 14px !important;
-  }
-
-  /* Основная сетка формы */
-  .card.new-operation .row,
-  .card.new-operation .form-grid {
-    gap: 8px !important;
-  }
-
-  /* Поля — без нижних отступов */
-  .card.new-operation .field {
-    margin-bottom: 0 !important;
-  }
-
-  /* Лейблы ближе к инпутам */
-  .card.new-operation label {
-    margin-bottom: 2px !important;
-  }
-
-  /* Инпуты визуально плотнее */
-  .card.new-operation input,
-  .card.new-operation select,
-  .card.new-operation textarea {
-    margin-top: 0 !important;
-  }
-}
+/* .card.new-operation compact block removed — spacing now via CSS vars */
     select {
     color: #ffffff;
   }
@@ -726,37 +701,102 @@
 }
 
 
-/* Operations filters */
-.opsFiltersGrid{
-  display:grid;
-  grid-template-columns: 220px 170px 170px 1fr 140px;
-  gap:10px;
-  align-items:end;
-  margin: 8px 0 12px;
-}
-.opsFiltersGrid .field{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  min-width: 0;
-}
-.opsFiltersGrid label{
-  font-size:12px;
+/* === Help button & popup (П5) === */
+.help-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
   color: var(--muted);
-  font-weight:800;
-  margin: 0 0 2px 2px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
 }
-.opsFiltersGrid .opsFiltersActions{
-  align-self:end;
-}
-@media (max-width: 860px){
-  .opsFiltersGrid{ grid-template-columns: 1fr 1fr; }
-  .opsFiltersGrid .opsFiltersActions{ grid-column: 1 / -1; }
-}
-@media (max-width: 520px){
-  .opsFiltersGrid{ grid-template-columns: 1fr; }
+.help-btn:hover,
+.help-btn:focus-visible{
+  background: rgba(87,166,255,.18);
+  border-color: rgba(87,166,255,.45);
+  color: var(--text);
+  outline: none;
 }
 
+.helpPopup{
+  position: fixed;
+  z-index: 8500;
+  max-width: 280px;
+  min-width: 180px;
+  background: rgba(23,26,34,.98);
+  border: 1px solid rgba(87,166,255,.35);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  backdrop-filter: blur(14px);
+  padding: 0;
+  pointer-events: auto;
+  /* появление */
+  animation: helpPopupIn .15s ease;
+}
+@keyframes helpPopupIn{
+  from{ opacity:0; transform: scale(.94) translateY(-4px); }
+  to  { opacity:1; transform: scale(1)   translateY(0); }
+}
+
+.helpPopupInner{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px;
+}
+.helpPopupText{
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  flex: 1;
+}
+.helpPopupClose{
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+}
+.helpPopupClose:hover{ background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35); color: var(--danger); }
+
+/* === Op form toggle button === */
+.op-form-toggle{
+  margin-left: auto;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+  user-select: none;
+}
+.op-form-toggle.open{
+  transform: rotate(90deg);
+}
+
+/* === Ops filter button === */
+.ops-filter-btn{
+  margin-left: auto;
+  font-size: 18px;
+}
+.ops-filter-btn.active{
+  border-color: rgba(87,166,255,.55);
+  background: rgba(87,166,255,.18);
+}
+
+/* Operations date header */
 .op-date-header-row{
   display:flex;
   align-items:baseline;
