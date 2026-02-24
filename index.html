@@ -87,9 +87,11 @@
         <div class="cardTitle">
           <h2>Новая операция</h2>
           <span class="pill" id="pill-month"></span>
-          <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек" style="font-size:18px;background:none;border:none;cursor:pointer;padding:2px 6px;">📷</button>
-          <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" style="display:none" />
-          <button class="icon-btn op-form-toggle" id="btn-toggle-op-form" title="Развернуть / свернуть форму" aria-expanded="false">▸</button>
+          <div class="op-header-btns">
+            <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек">📷</button>
+            <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" style="display:none" />
+            <button class="icon-btn op-form-toggle" id="btn-toggle-op-form" title="Развернуть / свернуть форму" aria-expanded="false">▸</button>
+          </div>
         </div>
 
         <!-- тело формы: скрыто по умолчанию -->
