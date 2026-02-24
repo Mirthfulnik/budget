@@ -1309,50 +1309,41 @@ const catsWithLimit = new Set(
   .filter(c => catsWithLimit.has(String(c.id)));
 
   const rows = expCats.map(cat=>{
-    const lim = limitsMap[String(cat.id)];
-    const limitAmount = lim ? Number(lim.amount||0) : 0;
-    const spent = Number(spentByCat[String(cat.id)]||0);
-    const remaining = limitAmount > 0 ? (limitAmount - spent) : null;
-    const pct = (limitAmount>0) ? clamp((spent/limitAmount)*100, 0, 160) : 0;
+  const lim = limitsMap[String(cat.id)];
+  const limitAmount = lim ? Number(lim.amount||0) : 0;
+  const spent = Number(spentByCat[String(cat.id)]||0);
+  const remaining = limitAmount > 0 ? (limitAmount - spent) : null;
+  const pct = (limitAmount>0) ? clamp((spent/limitAmount)*100, 0, 160) : 0;
 
-    const barColor = (limitAmount===0) ? "rgba(255,255,255,.25)" : (spent>limitAmount ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
-    const status = (limitAmount===0) ? "Лимит не задан" : (spent>limitAmount ? "Превышено" : "Потрачено");
+  const barColor = (limitAmount===0)
+    ? "rgba(255,255,255,.25)"
+    : (spent>limitAmount ? "rgba(255,91,110,.85)" : "rgba(87,166,255,.85)");
+  const status = (limitAmount===0) ? "Лимит не задан" : (spent>limitAmount ? "Превышено" : "Потрачено");
 
-    const jsId = String(o.id||"").replace(/\/g,"\\").replace(/'/g,"\'");
-      const catName = cat?.name || "Без категории";
-      const itemHtml = (Core && Core.renderOperationItemHTML)
-        ? Core.renderOperationItemHTML({
-            op: o,
-            catName,
-            subName: sub?.name || "",
-            accName: acc?.name || "Счёт",
-            currency: cur,
-            amountText: amt,
-            sign,
-            note,
-            editOnclick: `openOpEdit('${jsId}')`,
-            deleteOnclick: `confirmDeleteOp('${jsId}')`,
-          })
-        : `
-        <div class="item">
-          <div class="left">
-            <div class="t">
-              <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
-              <span style="margin-left:6px">${esc(catName)}${sub ? ` / ${esc(sub.name)}` : ""}</span>
-            </div>
-            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)} · ${note ? esc(note) : "—"}</div>
-          </div>
-          <div class="right">
-            <div style="font-weight:950">${sign} ${amt}</div>
-            <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
-            <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
-          </div>
-        </div>
-      `;
-      return itemHtml;
-  });
+  const catName = cat?.name || "Без категории";
+  const spentTxt = ruMoney(spent);
+  const limitTxt = ruMoney(limitAmount);
+  const remTxt = (remaining==null)
+    ? "—"
+    : (remaining>=0 ? ruMoney(remaining) : ("-" + ruMoney(Math.abs(remaining))));
 
-  $("#limits-view").innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
+  return `
+    <div class="item">
+      <div class="left" style="gap:6px">
+        <div class="t" title="${esc(catName)}">${esc(catName)}</div>
+        <div class="d">${esc(status)} · ${spentTxt} из ${limitTxt}</div>
+        <div class="progress"><i style="width:${pct}%; background:${barColor}"></i></div>
+      </div>
+      <div class="right" style="flex-direction:column; align-items:flex-end">
+        <div style="font-weight:950">${remTxt}</div>
+        <div class="d">Осталось</div>
+      </div>
+    </div>
+  `;
+});
+
+$("#limits-view")
+.innerHTML = rows.join("") || `<div class="muted">Нет категорий расходов.</div>`;
 
   // summary pill
   const totalLimit = sum(monthLimits.map(l=>Number(l.amount||0)));
