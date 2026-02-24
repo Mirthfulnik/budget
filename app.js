@@ -3696,45 +3696,6 @@ $("#op-amount")?.addEventListener("input", ()=>{
 $("#op-fx-rate")?.addEventListener("input", ()=>{
   recalcTransferTo_();
 });
-/**
- * ============================================================
- * OCR ПАТЧ — Finance 2026
- * ============================================================
- *
- * ФАЙЛ 1: index.html
- * ------------------
- * Найди строку:
- *   <h2>Новая операция</h2>
- *   <span class="pill" id="pill-month"></span>
- *
- * Замени на:
- *   <h2>Новая операция</h2>
- *   <span class="pill" id="pill-month"></span>
- *   <button class="icon-btn" id="btn-scan-receipt" title="Сканировать чек" style="margin-left:auto;font-size:18px;background:none;border:none;cursor:pointer;padding:2px 6px;">📷</button>
- *   <input type="file" id="receipt-input" accept="image/jpeg,image/png,image/webp,image/*" capture="environment" style="display:none" />
- *
- * Найди строку:
- *   <button class="btn" id="btn-add-op">Добавить операцию</button>
- *
- * Добавь ПЕРЕД ней:
- *   <div id="receipt-preview-wrap" style="display:none;margin-bottom:10px">
- *     <img id="receipt-preview-img" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:contain;" />
- *     <div id="receipt-ocr-status" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
- *   </div>
- *
- * ============================================================
- *
- * ФАЙЛ 2: app.js
- * ------------------
- * Найди строку:
- *   const API_URL = "https://functions.yandexcloud.net/...";
- *
- * Добавь ПОСЛЕ неё:
- *   const RECEIPT_OCR_URL = "https://functions.yandexcloud.net/ВСТАВЬ_URL_НОВОЙ_ФУНКЦИИ";
- *
- * Затем добавь весь блок ниже в КОНЕЦ файла app.js:
- */
-
 // ============================================================
 //  OCR — сканирование чека
 // ============================================================
@@ -3915,3 +3876,34 @@ const opCategory = $("#op-category");
 if (opCategory) {
   opCategory.addEventListener("change", resetCategoryHighlight);
 }
+
+// Кнопка удаления чека
+function clearReceipt() {
+  const previewWrap = $("#receipt-preview-wrap");
+  const previewImg  = $("#receipt-preview-img");
+  const statusEl    = $("#receipt-ocr-status");
+  const inp         = $("#receipt-input");
+  if (previewWrap) previewWrap.style.display = "none";
+  if (previewImg)  { URL.revokeObjectURL(previewImg.src); previewImg.src = ""; }
+  if (statusEl)    { statusEl.textContent = ""; statusEl.style.color = ""; }
+  if (inp)         inp.value = "";
+  resetCategoryHighlight();
+}
+
+const btnClear = $("#btn-clear-receipt");
+if (btnClear) {
+  btnClear.addEventListener("click", clearReceipt);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
