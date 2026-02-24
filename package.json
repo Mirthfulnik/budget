@@ -1,0 +1,12 @@
+{
+  "name": "finance2026-pwa-tests",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8",
+    "jsdom": "^24.0.0"
+  }
+}
