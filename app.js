@@ -768,7 +768,7 @@ function setOpFormOpen(open){
   body.style.display = open ? "" : "none";
   btn.classList.toggle("open", open);
   btn.setAttribute("aria-expanded", String(open));
-  btn.textContent = open ? "▾" : "▸";
+  btn.textContent = open ? "🔽" : "▶️";
 
   try { localStorage.setItem("finance2026_op_form_open", open ? "1" : "0"); } catch(e){}
 }
