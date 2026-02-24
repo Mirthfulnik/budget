@@ -1447,9 +1447,10 @@ if (!ops.length){
               <span class="op-cat-name">${esc(cat?.name || "Без категории")}${sub ? ` <span class="op-sub">/ ${esc(sub.name)}</span>` : ""}</span>
             </div>
             <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)}${note ? ` · ${esc(note)}` : ""}</div>
+            <div class="op-amount op-amount-inline">${sign} ${amt}</div>
           </div>
           <div class="right">
-            <div class="op-amount">${sign} ${amt}</div>
+            <div class="op-amount op-amount-desk">${sign} ${amt}</div>
             <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
             <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
           </div>
@@ -1997,7 +1998,6 @@ function renderDashboard(){
     const cls = (k.label === "Расходы")
     ? (dir==="up" ? "down" : dir==="down" ? "up" : "flat")
     : dir;
-
     return `
       <div class="kpi">
         <div class="sub">${esc(k.label)} · <span class="delta ${cls}">${arrow} ${Math.round(deltaPct)}%</span></div>
@@ -2152,62 +2152,97 @@ function drawBarChart(canvas, from, to, ops){
 
   const hit = []; // интерактивные зоны для tooltip/выбора
 
-  for (let i=0;i<n;i++){
-    const x0 = pad + i*groupW + groupW/2;
-    const incH = (data[i].income / maxVal) * (chartH-10);
-    const expH = (data[i].expense / maxVal) * (chartH-10);
+  const ANIM_DURATION = 480; // ms
+  const startTime = performance.now();
 
+  function renderFrame(progress) {
+    ctx.clearRect(0,0,w,h);
 
-    // income bar
-    ctx.fillStyle = "rgba(65,211,141,.85)";
-    const incX = x0 - barW - gap/2;
-    const incY = topPad+chartH - incH;
-    ctx.fillRect(incX, incY, barW, incH);
+    // axis baseline
+    ctx.strokeStyle = "rgba(255,255,255,.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, topPad+chartH);
+    ctx.lineTo(pad+chartW, topPad+chartH);
+    ctx.stroke();
 
-    // expense bar
-    ctx.fillStyle = "rgba(255,91,110,.85)";
-    const expX = x0 + gap/2;
-    const expY = topPad+chartH - expH;
-    ctx.fillRect(expX, expY, barW, expH);
+    hit.length = 0;
 
-    // hit zones
-    hit.push({kind:"income", idx:i, x:incX, y:incY, w:barW, h:incH, label:data[i].label, value:data[i].income, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
-    hit.push({kind:"expense", idx:i, x:expX, y:expY, w:barW, h:expH, label:data[i].label, value:data[i].expense, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+    for (let i=0;i<n;i++){
+      const x0 = pad + i*groupW + groupW/2;
+      const incH = (data[i].income / maxVal) * (chartH-10) * progress;
+      const expH = (data[i].expense / maxVal) * (chartH-10) * progress;
 
-    // labels
-    ctx.fillStyle = "rgba(255,255,255,.70)";
-    ctx.font = "12px Inter, system-ui, sans-serif";
-    if (!rotateLabels){
-      ctx.textAlign = "center";
-      ctx.fillText(data[i].label, x0, topPad+chartH + 18);
-    } else {
-      ctx.save();
-      ctx.translate(x0, topPad+chartH + 18);
-      ctx.rotate(-Math.PI/2);
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      ctx.fillText(data[i].label, 0, 0);
-      ctx.restore();
-      ctx.textBaseline = "alphabetic";
+      // income bar
+      ctx.fillStyle = "rgba(65,211,141,.85)";
+      const incX = x0 - barW - gap/2;
+      const incY = topPad+chartH - incH;
+      ctx.fillRect(incX, incY, barW, incH);
+
+      // expense bar
+      ctx.fillStyle = "rgba(255,91,110,.85)";
+      const expX = x0 + gap/2;
+      const expY = topPad+chartH - expH;
+      ctx.fillRect(expX, expY, barW, expH);
+
+      // hit zones (full height, only set when animation done)
+      if (progress >= 1) {
+        hit.push({kind:"income", idx:i, x:incX, y:topPad+chartH-(data[i].income/maxVal)*(chartH-10), w:barW, h:(data[i].income/maxVal)*(chartH-10), label:data[i].label, value:data[i].income, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+        hit.push({kind:"expense", idx:i, x:expX, y:topPad+chartH-(data[i].expense/maxVal)*(chartH-10), w:barW, h:(data[i].expense/maxVal)*(chartH-10), label:data[i].label, value:data[i].expense, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+      }
+
+      // labels
+      ctx.fillStyle = "rgba(255,255,255,.70)";
+      ctx.font = "12px Inter, system-ui, sans-serif";
+      if (!rotateLabels){
+        ctx.textAlign = "center";
+        ctx.fillText(data[i].label, x0, topPad+chartH + 18);
+      } else {
+        ctx.save();
+        ctx.translate(x0, topPad+chartH + 18);
+        ctx.rotate(-Math.PI/2);
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillText(data[i].label, 0, 0);
+        ctx.restore();
+        ctx.textBaseline = "alphabetic";
+      }
     }
+
+    // legend
+    ctx.textAlign = "left";
+    ctx.font = "11px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "rgba(65,211,141,.9)";
+    ctx.fillText("Доходы", pad, 16);
+    ctx.fillStyle = "rgba(255,91,110,.9)";
+    ctx.fillText("Расходы", pad+72, 16);
   }
 
-// legend
-  ctx.textAlign = "left";
-  ctx.font = "11px Inter, system-ui, sans-serif";
-  ctx.fillStyle = "rgba(65,211,141,.9)";
-  ctx.fillText("Доходы", pad, 16);
-  ctx.fillStyle = "rgba(255,91,110,.9)";
-  ctx.fillText("Расходы", pad+72, 16);
-
-  // сохраняем модель для tooltip/моб.селекта
-  state.ui.barModel = {
-    bucket,
-    from: new Date(from),
-    to: new Date(to),
-    buckets: data.map(x=>({label:x.label, income:x.income, expense:x.expense, balance:(x.income-x.expense)})),
-    hit
-  };
+  function animate(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / ANIM_DURATION, 1);
+    // ease out cubic
+    const progress = 1 - Math.pow(1 - t, 3);
+    renderFrame(progress);
+    if (t < 1) requestAnimationFrame(animate);
+    else {
+      // populate hit zones after animation completes
+      hit.length = 0;
+      for (let i=0;i<n;i++){
+        const x0 = pad + i*groupW + groupW/2;
+        const incH = (data[i].income / maxVal) * (chartH-10);
+        const expH = (data[i].expense / maxVal) * (chartH-10);
+        const incX = x0 - barW - gap/2;
+        const expX = x0 + gap/2;
+        hit.push({kind:"income", idx:i, x:incX, y:topPad+chartH-incH, w:barW, h:incH, label:data[i].label, value:data[i].income, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+        hit.push({kind:"expense", idx:i, x:expX, y:topPad+chartH-expH, w:barW, h:expH, label:data[i].label, value:data[i].expense, income:data[i].income, expense:data[i].expense, balance:data[i].income-data[i].expense});
+      }
+      state.ui.barModel = { bucket, from: new Date(from), to: new Date(to), buckets: data.map(x=>({label:x.label, income:x.income, expense:x.expense, balance:(x.income-x.expense)})), hit };
+    }
+  }
+  requestAnimationFrame(animate);
+  // Return a preliminary barModel (hit zones populated after animation)
+  state.ui.barModel = { bucket, from: new Date(from), to: new Date(to), buckets: data.map(x=>({label:x.label, income:x.income, expense:x.expense, balance:(x.income-x.expense)})), hit };
   return state.ui.barModel;
 }
 
@@ -2249,41 +2284,76 @@ function drawPie(canvas, ops, kind){
 
   const hit = []; // сектора для tooltip/выбора
 
+  // Pre-compute fractions and angles
+  const slices = [];
+  let ang0 = -Math.PI/2;
   for (let i=0;i<entries.length;i++){
     const frac = entries[i].val/total;
-    const a2 = ang + frac*2*Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(cx,cy);
-    ctx.arc(cx,cy,r,ang,a2);
-    ctx.closePath();
-    ctx.fillStyle = palette[i % palette.length];
-    ctx.fill();
-
-    hit.push({
-      idx:i,
-      color: palette[i % palette.length],
-      cid: entries[i].cid,
-      name: entries[i].name,
-      val: entries[i].val,
-      pct: (entries[i].val/total)*100,
-      a1: ang,
-      a2: a2,
-      cx, cy,
-      rOuter: r,
-      rInner: r*0.55,
-      color: palette[i % palette.length]
-    });
-
-    ang = a2;
+    const a1 = ang0;
+    const a2 = ang0 + frac*2*Math.PI;
+    slices.push({ frac, a1, a2, color: palette[i % palette.length], entry: entries[i] });
+    ang0 = a2;
   }
 
-  // donut hole
-  ctx.beginPath();
-  ctx.arc(cx,cy,r*0.55,0,2*Math.PI);
-  ctx.fillStyle = "rgba(15,17,21,1)";
-  ctx.fill();
+  const ANIM_DURATION_PIE = 520;
+  const startTimePie = performance.now();
 
-  // legend (HTML, wraps on mobile)
+  function renderPieFrame(progress) {
+    ctx.clearRect(0,0,w,h);
+
+    const totalAngle = 2 * Math.PI * progress;
+    let drawn = 0;
+    hit.length = 0;
+
+    for (let i = 0; i < slices.length; i++) {
+      const s = slices[i];
+      const sliceAngle = s.a2 - s.a1;
+      if (drawn >= totalAngle) break;
+
+      const a1 = s.a1;
+      const a2 = Math.min(s.a2, s.a1 + (totalAngle - drawn));
+      const drawAngle = a2 - a1;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, a1, a2);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+
+      if (progress >= 1) {
+        hit.push({ idx:i, color:s.color, cid:s.entry.cid, name:s.entry.name, val:s.entry.val, pct:(s.entry.val/total)*100, a1:s.a1, a2:s.a2, cx, cy, rOuter:r, rInner:r*0.55 });
+      }
+
+      drawn += sliceAngle;
+    }
+
+    // donut hole
+    ctx.beginPath();
+    ctx.arc(cx, cy, r*0.55, 0, 2*Math.PI);
+    ctx.fillStyle = "rgba(15,17,21,1)";
+    ctx.fill();
+  }
+
+  function animatePie(now) {
+    const elapsed = now - startTimePie;
+    const t = Math.min(elapsed / ANIM_DURATION_PIE, 1);
+    const progress = 1 - Math.pow(1 - t, 3);
+    renderPieFrame(progress);
+    if (t < 1) {
+      requestAnimationFrame(animatePie);
+    } else {
+      // Final state: populate hit zones
+      hit.length = 0;
+      slices.forEach((s,i)=>hit.push({ idx:i, color:s.color, cid:s.entry.cid, name:s.entry.name, val:s.entry.val, pct:(s.entry.val/total)*100, a1:s.a1, a2:s.a2, cx, cy, rOuter:r, rInner:r*0.55 }));
+      const model = { kind, total, entries: entries.map((e,i)=>({cid:e.cid, name:e.name, val:e.val, pct:(e.val/total)*100, color: palette[i % palette.length]})), hit };
+      if (kind==="expense") state.ui.pieExpenseModel = model;
+      if (kind==="income") state.ui.pieIncomeModel = model;
+    }
+  }
+  requestAnimationFrame(animatePie);
+
+  // legend (HTML, wraps on mobile) — rendered immediately, not animated
   const legendEl = document.getElementById(`pie-${kind}-legend`);
   if (legendEl){
     const maxItems = 18; // safety for very long lists
@@ -2298,7 +2368,7 @@ function drawPie(canvas, ops, kind){
     }).join("");
   }
 
-// сохраняем модель
+// сохраняем предварительную модель (hit zones заполнятся после анимации)
   const model = {
     kind,
     total,
