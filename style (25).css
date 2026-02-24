@@ -1,0 +1,1114 @@
+:root{
+      --bg:#0f1115; --card:#171a22; --card2:#1c2030;
+      --text:#e9eef6; --muted:#9aa3b2; --line:#2a3142;
+      --accent:#57a6ff; --danger:#ff5b6e; --ok:#41d38d; --warn:#ffcc66;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --navH: 70px;
+      --safeB: env(safe-area-inset-bottom, 0px);
+      --safeT: env(safe-area-inset-top, 0px);
+
+      /* === Единый вертикальный ритм === */
+      --field-gap: 12px;       /* gap между .field внутри .row (десктоп) */
+      --field-gap-mob: 14px;   /* то же на мобильном */
+      --row-gap: 12px;         /* gap между .row блоками */
+      --row-gap-mob: 14px;
+    }
+    /* === Space under each page so fixed bottom-nav never overlaps content === */
+    :root{
+      --navGap: 10px;     /* bottom: 10px у .bottomNav */
+      --pageBottomPad: 18px; /* дополнительный комфорт */
+    }
+
+    .page::after{
+      content:"";
+      display:block;
+      height: calc(var(--navH) + var(--navGap) + var(--safeB) + var(--pageBottomPad));
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding-bottom: calc(var(--navH) + var(--safeB) + 34px);
+      overflow-x: hidden; /* iOS: avoid horizontal overflow from form controls */
+      -webkit-tap-highlight-color: transparent;
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px; margin:0 auto; padding:14px; padding-top: calc(12px + var(--safeT)); overflow-x:hidden;}
+    .grid{
+      display:grid; gap:12px;
+      grid-template-columns: 1fr;
+    }
+    @media (max-width: 560px){
+  .grid{ gap:14px; }
+  .card{ padding: 14px; }
+}
+    @media (min-width: 980px){
+      .grid.cols2{grid-template-columns: 1fr;}
+      .grid.cols3{grid-template-columns: 1fr 1fr 1fr;}
+      .grid.cols2wide{grid-template-columns: 1.6fr .4fr;}
+    }
+    /* === Mobile layout fixes === */
+@media (max-width: 560px){
+  /* Don't try to keep multiple fields in one row on narrow screens */
+  .row{ gap:12px; flex-direction: column; }
+  .row > *{ flex: 1 1 100%; min-width: 0; }
+
+  /* iOS: prevent input zoom + accidental horizontal overflow */
+  input, select, textarea{ font-size:16px; }
+
+  /* Date + comment: stack and keep inputs inside viewport */
+  .op-date-row{ flex-direction: column; gap:12px; }
+  .op-date-row .field{ width: 100%; min-width: 0; }
+  .op-date-row input{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+  input[type="date"]{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+}
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardTitle{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      margin:0 0 10px 0;
+    }
+    .cardTitle h2{
+      margin:0; font-size:16px; letter-spacing:.2px;
+    }
+    .muted{color:var(--muted); font-size:13px}
+    .row{display:flex; gap:var(--field-gap); flex-wrap:wrap}
+    .row > *{flex:1 1 160px; min-width:0}
+    /* Вертикальный отступ между рядами полей */
+    .card > .row + .row,
+    .card > .field + .row,
+    .card > .row + .field { margin-top: var(--row-gap); }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color: var(--muted); font-size:12px;
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      width:100%;
+      padding:11px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(87,166,255,.18);
+      color: var(--text);
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.secondary{background: rgba(255,255,255,.06); font-weight:650}
+    .btn.danger{background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35)}
+    .btn.inline{width:auto; padding:9px 10px}
+    .btn.small{padding:8px 10px; font-size:13px}
+    .btn.ghost{
+      background: transparent;
+      border-color: rgba(255,255,255,.08);
+    }
+    input, select, textarea{
+      width:100%;
+      padding:11px 12px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      outline:none;
+      font-size:15px;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+
+    /* iOS Safari: date inputs can overflow if appearance isn't reset */
+    input[type="date"]{
+      -webkit-appearance: none;
+      appearance: none;
+      display:block;
+    }
+    textarea{min-height: 88px; resize: vertical;}
+    label{display:block; font-size:12px; color:var(--muted); margin: 0 0 6px 2px}
+    .field{margin-bottom: var(--field-gap); min-width:0}
+    .kpi{
+      display:flex; flex-direction:column; gap:6px;
+      padding:12px; border-radius: 14px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .kpi .val{font-size:18px; font-weight:800}
+    .kpi .sub{font-size:12px; color:var(--muted)}
+    .delta{font-size:12px; font-weight:700}
+    .delta.up{color: var(--ok)}
+    .delta.down{color: var(--danger)}
+    .delta.flat{color: var(--muted)}
+    .list{display:flex; flex-direction:column; gap:8px}
+    .item{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      padding:10px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .item .left{display:flex; flex-direction:column; gap:4px; min-width:0}
+    .item .right{display:flex; align-items:center; gap:8px; flex-shrink:0}
+    .item .t{font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .item .d{color:var(--muted); font-size:12px}
+/* === Operation item layout === */
+.op-item{ align-items:flex-start; }
+.op-item .left{ flex:1 1 0; min-width:0; }
+.op-item .right{ flex-shrink:0; gap:6px; }
+.op-row-top{ display:flex; align-items:baseline; gap:6px; flex-wrap:nowrap; min-width:0; }
+.op-cat-name{ font-weight:800; font-size:13px; white-space:normal; word-break:break-word; line-height:1.3; }
+.op-sub{ font-weight:600; color:var(--muted); }
+.op-amount{ font-weight:950; white-space:nowrap; font-size:14px; }
+@media (max-width:560px){
+  .op-item{ gap:8px; padding:9px 9px; }
+  .op-item .right{ flex-direction:column; align-items:flex-end; gap:4px; }
+  .op-amount{ font-size:13px; margin-bottom:2px; }
+  .op-row-top{ flex-wrap:wrap; gap:4px; }
+  .op-cat-name{ font-size:13px; white-space:normal; }
+}
+/* Operations item layout (mobile-first readability) */
+.opRowTop{display:flex; align-items:center; gap:10px; min-width:0}
+.opTitle{font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.opMeta{color:var(--muted); font-size:12px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.opAmtMobile{display:none; font-weight:950; margin-left:auto}
+.opAmtDesk{display:block}
+@media (max-width: 560px){
+  .opAmtMobile{display:inline-flex}
+  .opAmtDesk{display:none}
+  .op-item .right{align-items:flex-start}
+  .op-item .left{gap:6px}
+}
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      color: var(--muted);
+      font-size:12px;
+      background: rgba(255,255,255,.03);
+    }
+    .tag.income{border-color: rgba(65,211,141,.35); color: rgba(65,211,141,.95)}
+    .tag.expense{border-color: rgba(255,91,110,.35); color: rgba(255,91,110,.95)}
+    .tag.transfer{border-color: rgba(255,204,102,.35); color: rgba(255,204,102,.95)}
+    .hr{height:1px; background: rgba(255,255,255,.08); margin:12px 0}
+.hr-tight{ margin:8px 0; }
+    .progress{
+      height:10px; border-radius: 999px; background: rgba(255,255,255,.06);
+      overflow:hidden; border:1px solid rgba(255,255,255,.06);
+    }
+    .progress > i{display:block; height:100%; width:0%;}
+    .hint{font-size:12px; color:var(--muted); line-height:1.35}
+    .sectionTitle{margin:0 0 10px 2px; font-size:13px; color: var(--muted)}
+    .tabs{
+      display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .tab{
+      padding:8px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      cursor:pointer;
+      user-select:none;
+      font-size:13px;
+      font-weight:750;
+    }
+    .tab.active{color: var(--text); border-color: rgba(87,166,255,.45); background: rgba(87,166,255,.14)}
+    /* pages */
+    .page{display:none}
+    .page.active{display:block}
+
+    /* === Spacing between top-level blocks inside each page === */
+.page > .grid,
+.page > .card {
+  margin-bottom: 12px;
+}
+.page > :last-child {
+  margin-bottom: 0;
+}
+
+/* чуть больше воздуха на телефонах */
+@media (max-width: 560px){
+  .page > .grid,
+  .page > .card {
+    margin-bottom: 14px;
+  }
+}
+
+    /* bottom nav */
+    .nav{
+      position: fixed;
+      left: 12px; right: 12px;
+      bottom: calc(10px + var(--safeB));
+      height: var(--navH);
+      border-radius: 18px;
+      background: rgba(10,12,18,.72);
+      border: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(14px);
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 10px;
+      z-index: 50;
+      box-shadow: var(--shadow);
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .nav .btnNav{
+      flex:1 1 auto;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:4px;
+      height:100%;
+      border-radius: 14px;
+      cursor:pointer;
+      color: var(--muted);
+      user-select:none;
+      padding: 8px 6px;
+      border:1px solid transparent;
+    }
+    .nav .btnNav.active{
+      color: var(--text);
+      border-color: rgba(87,166,255,.35);
+      background: rgba(87,166,255,.12);
+    }
+    .nav .btnNav .ico{font-size:18px}
+    .nav .btnNav .lbl{font-size:11px; font-weight:800; letter-spacing:.2px}
+    .nav .btnNav.sync{
+      flex: 0 0 120px;
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.08);
+    }
+
+    /* sync toast/modal */
+    .toast{
+      position: fixed;
+      left: 12px; right: 12px;
+      bottom: calc(var(--navH) + 34px + var(--safeB));
+      max-width: 1100px;
+      margin: 0 auto;
+      background: rgba(23,26,34,.92);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 12px 12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      display:none;
+      z-index: 9999;
+    }
+    .toast.show{display:block}
+    .toastTop{display:flex; justify-content:space-between; align-items:center; gap:10px}
+    .toastTitle{font-weight:900}
+    .toastBody{margin-top:8px; color: var(--muted); font-size:12px; line-height:1.35; white-space:pre-wrap}
+    .x{
+      width:32px; height:32px;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius: 10px;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      user-select:none;
+    }
+
+    canvas{width:100%; height:260px; display:block}
+    .canvasWrap{height:260px}
+    
+.subcatWrap{height:160px}
+.subcatWrap canvas{height:160px}
+@media (max-width: 420px){
+      canvas{height:240px}
+      .canvasWrap{height:240px}
+      .subcatWrap{height:130px}
+      .subcatWrap canvas{height:130px}
+
+      .nav .btnNav.sync{flex:0 0 95px}
+    }
+
+    
+
+    
+/* pie HTML legend (wrap on mobile) */
+.pieLegend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 10px;
+  margin-top:10px;
+  align-items:center;
+}
+.pieLegend .pieItem{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  max-width:100%;
+  cursor:pointer;
+  user-select:none;
+}
+.pieLegend .swatch{
+  width:10px;
+  height:10px;
+  border-radius:3px;
+  flex:0 0 10px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+}
+.pieLegend .label{
+  font-size:12px;
+  line-height:1.2;
+  color:rgba(255,255,255,.78);
+  word-break:break-word;
+}
+
+/* chart tooltips + mobile pickers */
+    .chartTip{
+      position: fixed;
+      z-index: 90;
+      pointer-events: none;
+      background: rgba(23,26,34,.96);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,.92);
+      font-size: 12px;
+      line-height: 1.25;
+      max-width: 240px;
+      transform: translate(10px, 10px);
+      white-space: nowrap;
+    }
+    .dashMobileControls{ display:none; margin-top: 10px; }
+    .dashDetails{
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .kpi.mini{
+      display:flex;
+      gap:10px;
+      flex-wrap: wrap;
+    }
+    .kpi.mini .kpiItem{
+      flex: 1 1 140px;
+      min-width: 140px;
+      border-radius: 12px;
+      padding: 10px 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+    }
+    .kpi.mini .kpiItem .k{ font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .kpi.mini .kpiItem .v{ font-weight: 900; }
+    @media (max-width: 560px){
+      .dashMobileControls{ display:block; }
+    }
+
+/* modal */
+    .modalBack{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none; align-items:flex-end; justify-content:center;
+      z-index: 80;
+      padding: 14px;
+      padding-bottom: calc(14px + var(--safeB));
+    }
+    .modalBack.show{display:flex}
+    .modal{
+      width:100%; max-width: 640px;
+      background: rgba(23,26,34,.98);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modalHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .modalHead h3{margin:0; font-size:15px}
+    .modalBody{padding: 12px 12px}
+
+/* =========================
+   MOBILE POLISH (iOS/Android)
+========================= */
+@media (max-width: 560px){
+  /* Мобильный ритм через переменные */
+  .row{ gap: 8px; }
+  .card > .row + .row,
+  .card > .field + .row,
+  .card > .row + .field { margin-top: 8px; }
+  .field{ margin-bottom: 8px; }
+
+  /* Reduce double spacing in stacked rows (gap + margin would be too big) */
+  .row > .field{ margin-bottom: 0; }
+  label{ margin: 0 0 4px 2px; }
+  /* Форма новой операции — плотнее */
+  #op-form-body .field{ margin-bottom:6px; }
+  #op-form-body .row + .row{ margin-top:6px; }
+  #op-form-body .row{ gap:6px; }
+
+  /* Инпуты: стабильный размер + без переполнения */
+  input, select, textarea{
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 44px; /* iOS touch target */
+    border-radius: 12px;
+  }
+  textarea{ min-height: 96px; }
+
+  /* cards: чуть скруглённее на мобильном */
+  .card{ border-radius: 16px; }
+
+  /* Sticky кнопка добавления операции */
+  .opCard{ overflow: visible !important; }
+  #btn-add-op{
+    position: sticky;
+    bottom: calc(var(--navH) + var(--safeB) + 12px);
+    z-index: 6;
+    margin-top: 16px;
+  }
+}
+
+/* =========================
+   DASHBOARD: currency block spacing
+========================= */
+#currency-structure{ margin-bottom: 14px; }
+/* Subcat dashboard — no min-height when empty */
+#subcat-list:empty, #subcat-list{ min-height:0; }
+.card:has(#subcat-list) .field{ margin-bottom:8px; }
+#currency-structure + .hint{ margin-top: 16px !important; }
+
+/* .card.new-operation compact block removed — spacing now via CSS vars */
+    select {
+    color: #ffffff;
+  }
+
+  /* Раскрытый список */
+  select option {
+    color: #000000 !important;
+  }
+
+/* === CanSpend block === */
+.canSpend{display:flex; gap:10px; flex-wrap:wrap}
+.canSpend .csItem{flex:1 1 120px; min-width:120px; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+.canSpend .csCur{color:var(--muted); font-weight:800; font-size:12px}
+.canSpend .csVal{font-weight:950; font-size:14px}
+@media (max-width:560px){
+  .canSpend{flex-direction:column}
+  .canSpend .csItem{min-width:0}
+}
+
+/* === Operation icon buttons === */
+.icon-btn{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.06); color:var(--text); cursor:pointer}
+.icon-btn:active{transform:translateY(1px)}
+.icon-btn.edit{background: rgba(87,166,255,.12); border-color: rgba(87,166,255,.28)}
+.icon-btn.danger{background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35)}
+
+/* === Subcategory progress rows === */
+.subrow{display:flex; flex-direction:column; gap:8px}
+.subrowTop{display:flex; align-items:flex-end; justify-content:space-between; gap:10px}
+.subrowName{font-weight:900; font-size:14px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.subrowMeta{color:var(--muted); font-size:12px; font-weight:800; flex-shrink:0}
+.subbar{height:10px; border-radius:999px; background: rgba(255,255,255,.06); overflow:hidden; border:1px solid rgba(255,255,255,.06)}
+.subbar > i{display:block; height:100%; width:0%; background: rgba(87,166,255,.85)}
+
+
+
+/* Dashboard: center pie charts + legends */
+.pieCol{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+/* ВАЖНО: canvas должен иметь реальную ширину, иначе drawPie() рисует в 0px */
+.pieCol .canvasWrap{
+  width: 100%;
+  max-width: 520px;   /* можно 480/560 — на вкус */
+}
+.pieCol .canvasWrap canvas{
+  width: 100%;
+  display:block;
+}
+.pieCol .sectionTitle{
+  width:100%;
+  text-align:center;
+  margin-left:0;
+  margin-right:0;
+}
+.pieLegend{
+  justify-content:center;
+}
+#pie-expense-legend, #pie-income-legend{
+  margin-bottom:14px; /* space before hint */
+}
+
+/* Dashboard: give bar chart a bit more visual bottom room (canvas still controlled in JS) */
+
+
+/* FX helper hint under manual rate input */
+.fxHint{font-size:12px; opacity:.75; margin-top:6px; line-height:1.25;}
+
+/* === MODAL FORMS: more air between fields and buttons === */
+.modalBody .field{
+  margin-bottom: 14px;
+}
+
+.modalBody .row{
+  gap: 14px;
+}
+
+.modalBody .row + .row{
+  margin-top: 6px;
+}
+
+/* mobile override: keep proper spacing inside modals */
+@media (max-width: 560px){
+  .modalBody .field{ margin-bottom: 10px !important; }
+  .modalBody .row{ gap: 10px !important; }
+  .modalBody .row + .row{ margin-top: 4px !important; }
+}
+
+/* =========================
+   MODAL FORMS: unified layout
+   - inputs one column on mobile
+   - ONLY action buttons row (Save/Cancel) in 2 columns
+========================= */
+
+/* Mobile: stack modal rows (inputs in one column) */
+@media (max-width: 560px){
+  #modalBody .row{
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+  }
+  #modalBody .row > *{
+    flex: 1 1 100% !important;
+    min-width: 0;
+  }
+}
+
+/* Action buttons row: add class="modalActions" to the row containing Save/Cancel */
+@media (max-width: 560px){
+  #modalBody .modalActions{
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+  #modalBody .modalActions .btn{
+    width: 100% !important;
+  }
+}
+
+/* =========================
+   MODAL FORMS: unified layout
+   Goal:
+   - all inputs in one column on mobile
+   - ONLY action buttons row (Save/Cancel) in 2 columns
+========================= */
+
+/* Mobile: keep any modal .row stacked (inputs one column) */
+@media (max-width: 560px){
+  #modalBody .row{
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+  }
+  #modalBody .row > *{
+    flex: 1 1 100% !important;
+  }
+}
+
+/* Action buttons row: add class "modalActions" to the row that contains Save/Cancel */
+@media (max-width: 560px){
+  #modalBody .modalActions{
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+  #modalBody .modalActions .btn{
+    width: 100% !important;
+  }
+}
+
+/* === Telegram Feedback Widget === */
+
+#tg-feedback-btn{
+  position:fixed;
+  right:16px;
+  bottom:calc(var(--navH) + 26px + var(--safeB));
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:#111;
+  color:#fff;
+  font-size:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  z-index:120;
+  box-shadow: var(--shadow);
+}
+
+#tg-feedback-box{
+  position:fixed;
+  right:16px;
+  bottom:calc(var(--navH) + 96px + var(--safeB));
+  width:320px;
+  max-width:calc(100vw - 32px);
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  display:none;
+  flex-direction:column;
+  z-index:120;
+}
+
+#tg-feedback-box.open{
+  display:flex;
+}
+
+#tg-feedback-box .header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-weight:800;
+}
+
+#tg-feedback-form{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* === Feedback sending state === */
+#tg-feedback-form .btn.is-loading{
+  position: relative;
+  opacity: .85;
+  pointer-events: none;
+}
+
+#tg-feedback-form .btn .spinner{
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.25);
+  border-top-color: rgba(255,255,255,.9);
+  animation: spin .8s linear infinite;
+  display: none;
+}
+
+#tg-feedback-form .btn.is-loading .spinner{
+  display: inline-block;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* === Feedback status message === */
+#fb-status{
+  display:none;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+#fb-status.ok{
+  border-color: rgba(65,211,141,.28);
+  background: rgba(65,211,141,.10);
+}
+
+#fb-status.err{
+  border-color: rgba(255,91,110,.28);
+  background: rgba(255,91,110,.10);
+}
+
+
+/* === Help button & popup (П5) === */
+.help-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.help-btn:hover,
+.help-btn:focus-visible{
+  background: rgba(87,166,255,.18);
+  border-color: rgba(87,166,255,.45);
+  color: var(--text);
+  outline: none;
+}
+
+.helpPopup{
+  position: fixed;
+  z-index: 8500;
+  max-width: 280px;
+  min-width: 180px;
+  background: rgba(23,26,34,.98);
+  border: 1px solid rgba(87,166,255,.35);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  backdrop-filter: blur(14px);
+  padding: 0;
+  pointer-events: auto;
+  /* появление */
+  animation: helpPopupIn .15s ease;
+}
+@keyframes helpPopupIn{
+  from{ opacity:0; transform: scale(.94) translateY(-4px); }
+  to  { opacity:1; transform: scale(1)   translateY(0); }
+}
+
+.helpPopupInner{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px;
+}
+.helpPopupText{
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  flex: 1;
+}
+.helpPopupClose{
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+}
+.helpPopupClose:hover{ background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35); color: var(--danger); }
+
+/* === Op form toggle button === */
+/* === Op header buttons group === */
+.op-header-btns{
+  display:flex; align-items:center; gap:6px;
+  margin-left:auto; flex-shrink:0;
+}
+/* Выравниваем правый край по padding карточки */
+@media (max-width:560px){
+  .op-header-btns{ margin-right:0; }
+}
+.op-form-toggle{
+  margin-left: auto;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+  user-select: none;
+}
+.op-form-toggle.open{
+  transform: rotate(90deg);
+}
+
+/* === Ops filter button === */
+.ops-filter-btn{
+  margin-left: auto;
+  font-size: 18px;
+}
+.ops-filter-btn.active{
+  border-color: rgba(87,166,255,.55);
+  background: rgba(87,166,255,.18);
+}
+
+/* Operations date header */
+.op-date-header-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.op-date-total{
+  font-size:12px;
+  color: var(--text);
+  font-weight:900;
+  opacity:.95;
+}
+.op-date-total .muted{ color: var(--muted); font-weight:800; }
+
+
+/* ============================
+   AUTH OVERLAY
+   ============================ */
+.authOverlay{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,10,12,.72);
+  z-index: 9999;
+  padding: 16px;
+}
+.authOverlay.show{ display: flex; }
+
+.authCard{
+  width: min(420px, 100%);
+  background: #111216;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+}
+.authTitle{
+  font-weight: 900;
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+.authHint{
+  color: rgba(255,255,255,.66);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.authError{
+  min-height: 18px;
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.authLabel{
+  display:block;
+  color: rgba(255,255,255,.72);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.authInput{
+  width: 100%;
+  font-size: 16px; /* prevent mobile zoom */
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 10px 12px;
+  outline: none;
+}
+.authInput:focus{
+  border-color: rgba(255,255,255,.22);
+  background: rgba(255,255,255,.09);
+}
+.authBtn{
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 0;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.authPinTitle{
+  font-weight: 850;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+.authPinDots{
+  display:flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.authPinDots span{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: transparent;
+}
+.authPinDots span.on{
+  background: rgba(255,255,255,.85);
+}
+
+.authKeypad{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.authKeypad .key{
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  padding: 12px 0;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+}
+.authKeypad .key:active{
+  transform: translateY(1px);
+}
+.authKeypad .keySub{
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.authSmall{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,.62);
+  text-align: center;
+}
+
+/* disable background scroll when locked */
+html.auth-locked, body.auth-locked{
+  overflow: hidden;
+}
+
+@media (max-width: 560px){
+  .hr-tight{ margin:6px 0; }
+}
+
+@media (max-width: 560px){
+  /* Goals: compact cards */
+  #page-goals .item{ padding:7px 10px; gap:8px; }
+  #page-goals .item .d{ line-height:1.2; font-size:11px; }
+  #page-goals .item .t{ font-size:13px; }
+  #page-goals .progress{ height:6px; margin:1px 0; }
+  /* Saving plan — same compact treatment */
+  #saving-plan .item{ padding:7px 10px; gap:8px; }
+  #saving-plan .item .d{ line-height:1.2; font-size:11px; }
+  #saving-plan .item .t{ font-size:13px; }
+  #saving-plan .progress{ height:6px; margin:1px 0; }
+}
+
+/* === FIX 1: opCard — reduce vertical gaps on mobile === */
+@media (max-width: 560px){
+  .opCard .list{ gap:5px; }
+  .opCard .op-item{ padding:7px 8px; gap:6px; }
+  .opCard .op-date-header-row{ margin: 8px 0 4px !important; }
+}
+
+/* === FIX 2: op-amount under .d on mobile (place amount below meta line) === */
+/* Desktop: hide inline amount, show right-column amount */
+.op-amount-inline{ display: none; }
+.op-amount-desk{ display: block; }
+
+@media (max-width: 560px){
+  /* Mobile: show inline amount under .d, hide right-column amount */
+  .op-amount-inline{ display: block; font-weight:950; font-size:13px; margin-top:2px; }
+  .op-amount-desk{ display: none; }
+  .op-item .left{
+    flex:1 1 0;
+    min-width:0;
+  }
+  .op-item .right{
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  /* Move amount into left column below .d */
+  .op-item{
+    flex-wrap: nowrap;
+  }
+}
+
+/* === FIX 3: Dashboard subcat — remove gap between select and hr === */
+.card:has(#dash-subcat-category) .field{ margin-bottom: 0 !important; }
+.card:has(#subcat-list) .row{ margin-bottom: 0 !important; }
+#dash-subcat-category + * { /* nothing after select */ }
+.card:has(#subcat-list) .row + .hr,
+.card:has(#subcat-list) .field + .hr { margin-top: 4px !important; }
+@media (max-width: 560px){
+  .card:has(#dash-subcat-category) .field{ margin-bottom: 0 !important; }
+  .card:has(#subcat-list) .row{ margin-bottom: 0 !important; }
+}
+
+/* === FIX 4: ➕ inline small buttons 34x34 === */
+.btn.inline.small{
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+/* === FIX 5: Remove permanent highlight from btnNav sync === */
+.nav .btnNav.sync{
+  background: rgba(255,255,255,.05) !important;
+  border-color: rgba(255,255,255,.08) !important;
+  color: var(--muted) !important;
+}
+/* Only highlight sync when .active is explicitly added by JS */
+.nav .btnNav.sync.active{
+  color: var(--text) !important;
+  border-color: rgba(87,166,255,.35) !important;
+  background: rgba(87,166,255,.12) !important;
+}
+
+/* === FIX 6: Hide nav labels on mobile, keep only emoji === */
+@media (max-width: 560px){
+  .nav .btnNav .lbl{ display: none; }
+  .nav .btnNav{ gap: 0; }
+}
+
+/* =============================================
+   FIX: Убираем лишний воздух между полями формы
+   "Новая операция" на мобильном.
+   Каждое поле завёрнуто в отдельный .row —
+   gap + margin-top суммируются и дают большой отступ.
+============================================= */
+@media (max-width: 560px){
+  #op-form-body .row + .row { margin-top: 0 !important; }
+  #op-form-body .row        { gap: 0 !important; }
+  #op-form-body .field      { margin-bottom: 8px !important; }
+  #op-form-body .row > .field { margin-bottom: 8px !important; }
+  #op-form-body > .field:last-child,
+  #op-form-body .row:last-child > .field:last-child { margin-bottom: 0; }
+}
+
+/* =============================================
+   FIX: Компактные KPI-карточки на экране "Цели"
+   (Текущий среднемесячный доход / Следующий этап /
+   Нужно прибавить) — убираем раздутую высоту.
+   Причина: .row > * { flex: 1 1 100% } на мобильном
+   растягивает .kpi на всю высоту родителя.
+============================================= */
+@media (max-width: 560px){
+  #page-goals .card > .row { align-items: flex-start !important; }
+  #page-goals .card > .row > .kpi { flex: 0 0 auto !important; width: 100%; }
+  #page-goals .card .kpi { padding: 10px !important; }
+  #page-goals .card .kpi .val { font-size: 16px !important; }
+}
+
+/* =============================================
+   FIX: Убираем лишний отступ между полем
+   "Комментарий" и превью чека в форме операции.
+============================================= */
+#receipt-preview-wrap  { margin-top: 8px !important; }
+.receipt-preview-block { margin-top: 8px !important; }
+/* Если превью идёт сразу после .field без отдельного wrapper */
+#op-form-body .field + div[style*="margin"] { margin-top: 8px !important; }
