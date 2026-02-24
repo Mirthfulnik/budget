@@ -89,12 +89,31 @@
     .card > .field + .row,
     .card > .row + .field { margin-top: var(--row-gap); }
 
-    /* === Форма новой операции: убираем двойной отступ (margin-bottom .field + margin-top .row) === */
-    /* .field внутри .row не должны давать margin-bottom — gap у .row уже обеспечивает отступ между колонками */
-    .row > .field { margin-bottom: 0; }
-    /* Между .row внутри #op-form-body — единый компактный отступ, без суммирования */
-    #op-form-body > .row + .row { margin-top: 10px; }
-    #op-form-body > .row { margin-top: 0; }
+/* === op-form-row: замена .row для формы операции ===
+   Своя система без конфликта с глобальными .row правилами.
+   На десктопе — flex строка, на мобильном — колонка.
+   Между рядами — только margin-top, без суммирования с margin-bottom .field
+*/
+.op-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.op-form-row:last-of-type { margin-bottom: 0; }
+.op-form-row > .field {
+  flex: 1 1 160px;
+  min-width: 0;
+  margin-bottom: 0 !important; /* gap у .op-form-row уже даёт отступ */
+}
+@media (max-width: 560px) {
+  .op-form-row {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .op-form-row > .field { flex: 1 1 100%; }
+}
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:7px 10px; border-radius:999px;
@@ -454,14 +473,9 @@
   .card > .row + .field { margin-top: 8px; }
   .field{ margin-bottom: 8px; }
 
-  /* Поля внутри .row не дают margin-bottom — иначе gap + margin = двойной отступ */
-  .row > .field{ margin-bottom: 0 !important; }
+  /* Поля внутри .row не дают margin-bottom */
+  .row > .field{ margin-bottom: 0; }
   label{ margin: 0 0 4px 2px; }
-  /* Форма новой операции — плотнее */
-  #op-form-body .field{ margin-bottom:8px !important; }
-  #op-form-body .row > .field{ margin-bottom:0 !important; }
-  #op-form-body > .row + .row{ margin-top:8px !important; }
-  #op-form-body > .row{ gap:8px !important; }
 
   /* Инпуты: стабильный размер + без переполнения */
   input, select, textarea{
@@ -1085,8 +1099,6 @@ html.auth-locked, body.auth-locked{
 
 /* =============================================
    FIX: Компактные KPI-карточки на экране "Цели"
-   (Текущий среднемесячный доход / Следующий этап /
-   Нужно прибавить) — убираем раздутую высоту.
    Причина: .row > * { flex: 1 1 100% } на мобильном
    растягивает .kpi на всю высоту родителя.
 ============================================= */
@@ -1097,11 +1109,5 @@ html.auth-locked, body.auth-locked{
   #page-goals .card .kpi .val { font-size: 16px !important; }
 }
 
-/* =============================================
-   FIX: Убираем лишний отступ между полем
-   "Комментарий" и превью чека в форме операции.
-============================================= */
-#receipt-preview-wrap  { margin-top: 8px !important; }
-.receipt-preview-block { margin-top: 8px !important; }
-/* Если превью идёт сразу после .field без отдельного wrapper */
-#op-form-body .field + div[style*="margin"] { margin-top: 8px !important; }
+/* Превью чека — без большого отступа сверху */
+#receipt-preview-wrap { margin-top: 8px !important; }
