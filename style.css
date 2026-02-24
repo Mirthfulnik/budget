@@ -1074,3 +1074,41 @@ html.auth-locked, body.auth-locked{
   .nav .btnNav .lbl{ display: none; }
   .nav .btnNav{ gap: 0; }
 }
+
+/* =============================================
+   FIX: Убираем лишний воздух между полями формы
+   "Новая операция" на мобильном.
+   Каждое поле завёрнуто в отдельный .row —
+   gap + margin-top суммируются и дают большой отступ.
+============================================= */
+@media (max-width: 560px){
+  #op-form-body .row + .row { margin-top: 0 !important; }
+  #op-form-body .row        { gap: 0 !important; }
+  #op-form-body .field      { margin-bottom: 8px !important; }
+  #op-form-body .row > .field { margin-bottom: 8px !important; }
+  #op-form-body > .field:last-child,
+  #op-form-body .row:last-child > .field:last-child { margin-bottom: 0; }
+}
+
+/* =============================================
+   FIX: Компактные KPI-карточки на экране "Цели"
+   (Текущий среднемесячный доход / Следующий этап /
+   Нужно прибавить) — убираем раздутую высоту.
+   Причина: .row > * { flex: 1 1 100% } на мобильном
+   растягивает .kpi на всю высоту родителя.
+============================================= */
+@media (max-width: 560px){
+  #page-goals .card > .row { align-items: flex-start !important; }
+  #page-goals .card > .row > .kpi { flex: 0 0 auto !important; width: 100%; }
+  #page-goals .card .kpi { padding: 10px !important; }
+  #page-goals .card .kpi .val { font-size: 16px !important; }
+}
+
+/* =============================================
+   FIX: Убираем лишний отступ между полем
+   "Комментарий" и превью чека в форме операции.
+============================================= */
+#receipt-preview-wrap  { margin-top: 8px !important; }
+.receipt-preview-block { margin-top: 8px !important; }
+/* Если превью идёт сразу после .field без отдельного wrapper */
+#op-form-body .field + div[style*="margin"] { margin-top: 8px !important; }
