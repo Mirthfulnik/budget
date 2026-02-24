@@ -1409,7 +1409,7 @@ function renderOperations(){
   ops.sort((a,b)=>opTimeMs_(b)-opTimeMs_(a));
 
 if (!ops.length){
-    $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период.</div>`;
+    $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период. Измени фильтр (🔍) или добавь операцию.</div>`;
     return;
   }
 
@@ -1440,16 +1440,16 @@ if (!ops.length){
       const safeTrim = (v) => (v == null ? "" : String(v)).trim();
 
       return `
-        <div class="item">
+        <div class="item op-item">
           <div class="left">
-            <div class="t">
+            <div class="op-row-top">
               <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
-              <span style="margin-left:6px">${esc(cat?.name || "Без категории")}${sub ? ` / ${esc(sub.name)}` : ""}</span>
+              <span class="op-cat-name">${esc(cat?.name || "Без категории")}${sub ? ` <span class="op-sub">/ ${esc(sub.name)}</span>` : ""}</span>
             </div>
-            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)} · ${note ? esc(note) : "—"}</div>
+            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)}${note ? ` · ${esc(note)}` : ""}</div>
           </div>
           <div class="right">
-            <div style="font-weight:950">${sign} ${amt}</div>
+            <div class="op-amount">${sign} ${amt}</div>
             <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
             <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
           </div>
@@ -1510,7 +1510,6 @@ function renderSavingPlan(){
         </div>
         <div class="right" style="flex-direction:column; align-items:flex-end">
           <div style="font-weight:900">${left===0 ? "0 ₽" : ruMoney(left)}</div>
-          <button class="icon-btn edit" aria-label="Редактировать" onclick="openGoalEdit('${esc(g.id)}')">⚙️</button>
         </div>
       </div>
     `;
@@ -3135,7 +3134,7 @@ function renderSettings(){
       </div>
       <div class="right">
         <button class="icon-btn edit" aria-label="Редактировать" onclick="openCategoryEditor('${esc(c.id)}')">⚙️</button>
-        <button class="btn inline small danger" onclick="deleteCategoryConfirm('${esc(c.id)}')">✕</button>
+        <button class="icon-btn danger" aria-label="Удалить" onclick="deleteCategoryConfirm('${esc(c.id)}')">✕</button>
       </div>
     </div>
   `).join("") : `<div class="muted">Категорий пока нет. Добавь первую.</div>`;
@@ -3161,7 +3160,7 @@ function renderSettings(){
         </div>
         <div class="right">
           <button class="icon-btn edit" aria-label="Редактировать" onclick="openSubcategoryEditor('${esc(sc.id)}')">⚙️</button>
-          <button class="btn inline small danger" onclick="deleteSubcategoryConfirm('${esc(sc.id)}')">✕</button>
+          <button class="icon-btn danger" aria-label="Удалить" onclick="deleteSubcategoryConfirm('${esc(sc.id)}')">✕</button>
         </div>
       </div>
     `;
@@ -3177,7 +3176,7 @@ function renderSettings(){
       </div>
       <div class="right">
         <button class="icon-btn edit" aria-label="Редактировать" onclick="openAccountEditor('${esc(a.id)}')">⚙️</button>
-        <button class="btn inline small danger" onclick="deleteAccountConfirm('${esc(a.id)}')">✕</button>
+        <button class="icon-btn danger" aria-label="Удалить" onclick="deleteAccountConfirm('${esc(a.id)}')">✕</button>
       </div>
     </div>
   `).join("") : `<div class="muted">Счетов пока нет. Добавь первый (например «Карта», «Наличные»).</div>`;
