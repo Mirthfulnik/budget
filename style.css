@@ -75,12 +75,59 @@
       overflow:hidden;
     }
     .cardTitle{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      display:flex; align-items:center; gap:0;
       margin:0 0 10px 0;
     }
     .cardTitle h2{
       margin:0; font-size:16px; letter-spacing:.2px;
+      flex-shrink:0;
     }
+    /* ❓ сразу после h2 — 2px отступ, без разрыва */
+    .cardTitle h2 + .help-btn{ margin-left:3px; flex-shrink:0; }
+    /* Группа кнопок-действий — всегда справа */
+    .cardActions{
+      display:flex; align-items:center; gap:6px;
+      margin-left:auto; flex-shrink:0;
+    }
+    /* pill тоже прижимается через cardActions, или отдельно */
+    .cardTitle > .pill{ margin-left:auto; }
+
+    /* Кнопка добавления «+» — компактная иконочная */
+    .btn-add{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:30px; height:30px; border-radius:10px;
+      border:1px solid rgba(87,166,255,.35);
+      background:rgba(87,166,255,.12);
+      color:var(--accent); font-size:18px; font-weight:700;
+      cursor:pointer; flex-shrink:0; line-height:1;
+      transition: background .15s, border-color .15s;
+    }
+    .btn-add:hover{ background:rgba(87,166,255,.25); border-color:rgba(87,166,255,.6); }
+
+    /* Кнопка свернуть/развернуть секции — иконочная шеврон */
+    .btn-collapse{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px; height:28px; border-radius:8px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.04);
+      color:var(--muted); font-size:13px;
+      cursor:pointer; flex-shrink:0; line-height:1;
+      transition: background .15s, color .15s, transform .2s;
+      user-select:none;
+    }
+    .btn-collapse:hover{ background:rgba(255,255,255,.09); color:var(--text); }
+    .btn-collapse.open{ transform:rotate(90deg); }
+    /* Алиасы для новых имён в HTML (совместимость) */
+    .ct-actions{ display:flex; align-items:center; gap:6px; margin-left:auto; flex-shrink:0; }
+    .section-toggle{ display:inline-flex; align-items:center; justify-content:center;
+      width:28px; height:28px; border-radius:8px;
+      border:1px solid rgba(255,255,255,.10); background:rgba(255,255,255,.04);
+      color:var(--muted); font-size:13px; cursor:pointer; flex-shrink:0; line-height:1;
+      transition: background .15s, color .15s, transform .2s; user-select:none; }
+    .section-toggle:hover{ background:rgba(255,255,255,.09); color:var(--text); }
+    .section-toggle.open{ transform:rotate(90deg); }
+    /* Кнопка «Свернуть» внизу списка операций */
+    .ops-collapse-footer{ text-align:center; padding:10px 0 2px; }
     .muted{color:var(--muted); font-size:13px}
     .row{display:flex; gap:var(--field-gap); flex-wrap:wrap}
     .row > *{flex:1 1 160px; min-width:0}
@@ -775,20 +822,8 @@
 }
 .helpPopupClose:hover{ background: rgba(255,91,110,.18); border-color: rgba(255,91,110,.35); color: var(--danger); }
 
-/* === Op form toggle button === */
-.op-form-toggle{
-  margin-left: auto;
-  font-size: 16px;
-  transition: transform 0.2s ease;
-  user-select: none;
-}
-.op-form-toggle.open{
-  transform: rotate(90deg);
-}
-
 /* === Ops filter button === */
 .ops-filter-btn{
-  margin-left: auto;
   font-size: 18px;
 }
 .ops-filter-btn.active{
