@@ -88,6 +88,13 @@
     .card > .row + .row,
     .card > .field + .row,
     .card > .row + .field { margin-top: var(--row-gap); }
+
+    /* === Форма новой операции: убираем двойной отступ (margin-bottom .field + margin-top .row) === */
+    /* .field внутри .row не должны давать margin-bottom — gap у .row уже обеспечивает отступ между колонками */
+    .row > .field { margin-bottom: 0; }
+    /* Между .row внутри #op-form-body — единый компактный отступ, без суммирования */
+    #op-form-body > .row + .row { margin-top: 10px; }
+    #op-form-body > .row { margin-top: 0; }
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:7px 10px; border-radius:999px;
@@ -447,13 +454,14 @@
   .card > .row + .field { margin-top: 8px; }
   .field{ margin-bottom: 8px; }
 
-  /* Reduce double spacing in stacked rows (gap + margin would be too big) */
-  .row > .field{ margin-bottom: 0; }
+  /* Поля внутри .row не дают margin-bottom — иначе gap + margin = двойной отступ */
+  .row > .field{ margin-bottom: 0 !important; }
   label{ margin: 0 0 4px 2px; }
   /* Форма новой операции — плотнее */
-  #op-form-body .field{ margin-bottom:6px; }
-  #op-form-body .row + .row{ margin-top:6px; }
-  #op-form-body .row{ gap:6px; }
+  #op-form-body .field{ margin-bottom:8px !important; }
+  #op-form-body .row > .field{ margin-bottom:0 !important; }
+  #op-form-body > .row + .row{ margin-top:8px !important; }
+  #op-form-body > .row{ gap:8px !important; }
 
   /* Инпуты: стабильный размер + без переполнения */
   input, select, textarea{
@@ -1073,21 +1081,6 @@ html.auth-locked, body.auth-locked{
 @media (max-width: 560px){
   .nav .btnNav .lbl{ display: none; }
   .nav .btnNav{ gap: 0; }
-}
-
-/* =============================================
-   FIX: Убираем лишний воздух между полями формы
-   "Новая операция" на мобильном.
-   Каждое поле завёрнуто в отдельный .row —
-   gap + margin-top суммируются и дают большой отступ.
-============================================= */
-@media (max-width: 560px){
-  #op-form-body .row + .row { margin-top: 0 !important; }
-  #op-form-body .row        { gap: 0 !important; }
-  #op-form-body .field      { margin-bottom: 8px !important; }
-  #op-form-body .row > .field { margin-bottom: 8px !important; }
-  #op-form-body > .field:last-child,
-  #op-form-body .row:last-child > .field:last-child { margin-bottom: 0; }
 }
 
 /* =============================================
