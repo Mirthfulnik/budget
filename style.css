@@ -1129,3 +1129,19 @@ html.auth-locked, body.auth-locked{
 
 /* Превью чека — без большого отступа сверху */
 #receipt-preview-wrap { margin-top: 8px !important; }
+
+
+/* === Кнопка "Скрыть" в блоке Операций === */
+#ops-collapse-footer .btn{
+  width: 100%;
+  font-size: 13px;
+  padding: 9px 12px;
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.10);
+  color: var(--muted);
+  font-weight: 700;
+}
+#ops-collapse-footer .btn:hover{
+  background: rgba(255,255,255,.09);
+  color: var(--text);
+}
