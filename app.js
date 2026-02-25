@@ -804,7 +804,7 @@ function setOpsExpanded(expanded){
   if (btn){
     btn.classList.toggle("open", expanded);
     btn.setAttribute("aria-expanded", String(expanded));
-    btn.textContent = expanded ? "➖" : "➕";
+    btn.textContent = expanded ? "➕" : "➕";
   }
   try { localStorage.setItem("finance2026_ops_expanded", expanded ? "1" : "0"); } catch(e){}
   renderOperations();
@@ -1306,7 +1306,7 @@ function renderPult(){
   // Синхронизируем иконку кнопки toggle операций с текущим состоянием
   const _tb = $("#btn-toggle-ops");
   if (_tb){
-    _tb.textContent = state.ui.opsExpanded ? "➖" : "➕";
+    _tb.textContent = state.ui.opsExpanded ? "➕" : "➕";
     _tb.classList.toggle("open", state.ui.opsExpanded);
     _tb.setAttribute("aria-expanded", String(state.ui.opsExpanded));
   }
