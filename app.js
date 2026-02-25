@@ -1009,8 +1009,33 @@ async function syncAll(reason = "auto") {
   } catch (err) {
     const msg = String(err.message || err);
     if (isInit && cacheBootstrapLoadStale()) {
-      // Данные из кеша уже показаны — не блокируем интерфейс
-      toast("Нет связи", "Показаны кешированные данные", "warn", 3000);
+      // Данные из кеша уже показаны.
+      // Тихо повторяем запрос через 4 сек — функция Яндекса могла быть на холодном старте.
+      setTimeout(async () => {
+        try {
+          const j2 = await apiGet({ action: "bootstrap" });
+          const d2 = j2.data || {};
+          cacheBootstrapSave(d2);
+          applyBootstrapData(d2);
+          toast("Данные обновлены", "✅", "ok", 1200);
+        } catch {
+          // Второй раз тоже не получилось — теперь сообщаем пользователю
+          toast("Нет связи", "Показаны кешированные данные", "warn", 3000);
+        }
+      }, 4000);
+    } else if (isInit) {
+      // Кеша нет совсем — сразу повтор через 4 сек, потом ошибка
+      setTimeout(async () => {
+        try {
+          const j2 = await apiGet({ action: "bootstrap" });
+          const d2 = j2.data || {};
+          cacheBootstrapSave(d2);
+          applyBootstrapData(d2);
+          toast("Данные загружены", "✅", "ok", 1200);
+        } catch {
+          toast("Ошибка синхронизации", msg, "error", 0);
+        }
+      }, 4000);
     } else {
       toast("Ошибка синхронизации", msg, "error", 0);
     }
