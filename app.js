@@ -290,7 +290,8 @@ const state = {
     chartsInited: false,
     barPickIdx: null,
     piePickKey: "",
-    opFormOpen: false   // состояние toggle формы "Новая операция"
+    opFormOpen: false,   // состояние toggle формы "Новая операция"
+    opsExpanded: false   // состояние toggle блока "Операции" (false = свёрнут, показываем 3 последних)
   },
   lastBootstrapAt: null
 };
@@ -794,6 +795,42 @@ function ensureOpFormOpen(){
 
 /**
  * ============================
+ *  OPS LIST EXPAND / COLLAPSE
+ * ============================
+ */
+function setOpsExpanded(expanded){
+  state.ui.opsExpanded = expanded;
+  const btn = $("#btn-toggle-ops");
+  if (btn){
+    btn.classList.toggle("open", expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    btn.textContent = expanded ? "➖" : "➕";
+  }
+  try { localStorage.setItem("finance2026_ops_expanded", expanded ? "1" : "0"); } catch(e){}
+  renderOperations();
+}
+
+// Восстанавливаем состояние ops из localStorage
+(function restoreOpsState(){
+  try {
+    const saved = localStorage.getItem("finance2026_ops_expanded");
+    if (saved === "1") state.ui.opsExpanded = true;
+    // По умолчанию: свёрнуто (false)
+  } catch(e){}
+})();
+
+const _btnToggleOps = $("#btn-toggle-ops");
+if (_btnToggleOps){
+  _btnToggleOps.addEventListener("click", ()=> setOpsExpanded(!state.ui.opsExpanded));
+}
+
+const _btnHideOps = $("#btn-hide-ops");
+if (_btnHideOps){
+  _btnHideOps.addEventListener("click", ()=> setOpsExpanded(false));
+}
+
+/**
+ * ============================
  *  OPS FILTER MODAL (П3)
  * ============================
  */
@@ -1266,6 +1303,13 @@ $("#op-currency").addEventListener("change", (e)=>{ e.target._userTouched = true
  */
 function renderPult(){
   renderQuoteOfDay();
+  // Синхронизируем иконку кнопки toggle операций с текущим состоянием
+  const _tb = $("#btn-toggle-ops");
+  if (_tb){
+    _tb.textContent = state.ui.opsExpanded ? "➖" : "➕";
+    _tb.classList.toggle("open", state.ui.opsExpanded);
+    _tb.setAttribute("aria-expanded", String(state.ui.opsExpanded));
+  }
   renderOperations();
   renderCanSpend();
   renderLimitsView();
@@ -1408,37 +1452,28 @@ function renderOperations(){
   // Sort: newest first
   ops.sort((a,b)=>opTimeMs_(b)-opTimeMs_(a));
 
-if (!ops.length){
+  const footer = $("#ops-collapse-footer");
+
+  if (!ops.length){
     $("#ops-view").innerHTML = `<div class="muted">Нет операций за выбранный период. Измени фильтр (🔍) или добавь операцию.</div>`;
+    if (footer) footer.style.display = "none";
     return;
   }
 
-  const groups = {};
-  for (const o of ops){
-    const d = isoDate(o.date || o.createdAt || new Date());
-    (groups[d] ||= []).push(o);
-  }
+  const expanded = state.ui.opsExpanded;
 
-  const dates = Object.keys(groups).sort((a,b)=> (a<b?1:-1));
-  const html = dates.map(d=>{
-    // П4: внутри каждых суток — сортируем по id (op_YYYYMMDD_NNN — лексикографический порядок = порядок добавления)
-    const dayOps = groups[d].slice().sort((a,b)=>{
-      const aId = String(a.id||"");
-      const bId = String(b.id||"");
-      return aId.localeCompare(bId);
-    });
-
-    const items = dayOps.map(o=>{
+  // ── СВЁРНУТЫЙ режим: показываем последние 3 операции без группировки ──
+  if (!expanded){
+    if (footer) footer.style.display = "none";
+    const last3 = ops.slice(0, 3);
+    const items = last3.map(o => {
       const cat = catById(o.categoryId);
       const sub = subcatById(o.subcategoryId);
       const acc = accById(o.accountId);
-
       const sign = o.type==="expense" ? "−" : (o.type==="income" ? "+" : "↔");
       const cur = opCurrency(o);
       const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
       const note = (o.comment||"").trim();
-      const safeTrim = (v) => (v == null ? "" : String(v)).trim();
-
       return `
         <div class="item op-item">
           <div class="left">
@@ -1454,8 +1489,53 @@ if (!ops.length){
             <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
             <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
           </div>
-        </div>
-      `;
+        </div>`;
+    }).join("");
+    $("#ops-view").innerHTML = `<div class="list">${items}</div>`;
+    return;
+  }
+
+  // ── РАЗВЁРНУТЫЙ режим: группировка по дням, последние 2 дня с операциями ──
+  const groups = {};
+  for (const o of ops){
+    const d = isoDate(o.date || o.createdAt || new Date());
+    (groups[d] ||= []).push(o);
+  }
+
+  const dates = Object.keys(groups).sort((a,b)=> (a<b?1:-1));
+
+  // Берём последние 2 дня с операциями
+  const visibleDates = dates.slice(0, 2);
+
+  const html = visibleDates.map(d=>{
+    const dayOps = groups[d].slice().sort((a,b)=>{
+      return String(a.id||"").localeCompare(String(b.id||""));
+    });
+
+    const items = dayOps.map(o=>{
+      const cat = catById(o.categoryId);
+      const sub = subcatById(o.subcategoryId);
+      const acc = accById(o.accountId);
+      const sign = o.type==="expense" ? "−" : (o.type==="income" ? "+" : "↔");
+      const cur = opCurrency(o);
+      const amt = ruMoney(Math.abs(Number(o.amount||0)), cur);
+      const note = (o.comment||"").trim();
+      return `
+        <div class="item op-item">
+          <div class="left">
+            <div class="op-row-top">
+              <span class="tag ${o.type}">${o.type==="expense"?"Расход":o.type==="income"?"Доход":"Перевод"}</span>
+              <span class="op-cat-name">${esc(cat?.name || "Без категории")}${sub ? ` <span class="op-sub">/ ${esc(sub.name)}</span>` : ""}</span>
+            </div>
+            <div class="d">${esc(acc?.name || "Счёт")} · ${esc(cur)}${note ? ` · ${esc(note)}` : ""}</div>
+            <div class="op-amount op-amount-inline">${sign} ${amt}</div>
+          </div>
+          <div class="right">
+            <div class="op-amount op-amount-desk">${sign} ${amt}</div>
+            <button class="icon-btn edit" aria-label="Редактировать" onclick="openOpEdit('${esc(o.id)}')">⚙️</button>
+            <button class="icon-btn danger" aria-label="Удалить" onclick="confirmDeleteOp('${esc(o.id)}')">✕</button>
+          </div>
+        </div>`;
     }).join("");
 
     const pretty = (Core && Core.fmtOpDateHeader) ? Core.fmtOpDateHeader(new Date(d+"T00:00:00")) : new Date(d+"T00:00:00").toLocaleDateString("ru-RU", {weekday:"short", day:"2-digit", month:"long"});
@@ -1465,11 +1545,13 @@ if (!ops.length){
         <div class="op-date-header" style="color: var(--muted); font-weight:900; font-size:12px">${esc(pretty)}</div>
         <div class="op-date-total">Итог: ${esc(totals.balanceText)}${totals.transferText ? ` <span class="muted">·</span> ${esc(totals.transferText)}` : ""}</div>
       </div>
-      <div class="list">${items}</div>
-    `;
+      <div class="list">${items}</div>`;
   }).join("");
 
   $("#ops-view").innerHTML = html;
+
+  // Показываем кнопку "Скрыть" в конце списка
+  if (footer) footer.style.display = "block";
 }
 
 function renderSavingPlan(){
