@@ -192,9 +192,16 @@
       <div class="card">
         <div class="cardTitle">
           <h2>Операции</h2>
-          <button class="icon-btn ops-filter-btn" id="btn-ops-filter" title="Фильтры">🔍</button>
+          <div class="op-header-btns">
+            <button class="icon-btn ops-filter-btn" id="btn-ops-filter" title="Фильтры">🔍</button>
+            <button class="icon-btn op-form-toggle" id="btn-toggle-ops" title="Развернуть / свернуть" aria-expanded="false">➕</button>
+          </div>
         </div>
         <div id="ops-view"></div>
+        <div id="ops-collapse-footer" style="display:none">
+          <div class="hr" style="margin:10px 0 8px"></div>
+          <button class="btn secondary" id="btn-hide-ops" style="font-size:13px;padding:8px 12px">Скрыть</button>
+        </div>
       </div>
 
       <!-- 4. ЛИМИТЫ -->
