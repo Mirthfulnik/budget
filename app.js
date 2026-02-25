@@ -1681,7 +1681,7 @@ function openOpEdit(id){
     <div class="field"><label>Комментарий</label><input id="edit-op-comment" type="text" placeholder="необязательно" /></div>
 
     <div class="row">
-      <button class="btn" id="btn-save-op">Сохранить изменения</button>
+      <button class="btn" id="btn-save-op">Сохранить </button>
       <button class="btn secondary" id="btn-cancel-op">Отмена</button>
     </div>
   `;
