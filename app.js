@@ -1180,16 +1180,19 @@ function renderSelects(){
 function toggleOpFieldsByType_(){
   const type = $("#op-type")?.value || "expense";
 
-  const rowCommon = $("#op-category")?.closest(".row");   // строка Кат/Подкат/Счет/Валюта
-  const trRow = $("#op-transfer-row");
+  // Строки Категория/Подкатегория и Счёт/Валюта — скрываем при переводе
+  const rowCatSub  = $("#op-category")?.closest(".op-form-row");
+  const rowAccCur  = $("#op-account")?.closest(".op-form-row");
+  const trRow      = $("#op-transfer-row");
 
   if (type === "transfer"){
-    if (rowCommon) rowCommon.style.display = "none";
-    if (trRow) trRow.style.display = "flex";
-    // подкатегория уже отключается renderSubcategorySelect(), ок
+    if (rowCatSub) rowCatSub.style.display = "none";
+    if (rowAccCur) rowAccCur.style.display = "none";
+    if (trRow)     trRow.style.display = "";
   } else {
-    if (rowCommon) rowCommon.style.display = "";
-    if (trRow) trRow.style.display = "none";
+    if (rowCatSub) rowCatSub.style.display = "";
+    if (rowAccCur) rowAccCur.style.display = "";
+    if (trRow)     trRow.style.display = "none";
   }
 }
 
@@ -2995,7 +2998,6 @@ function renderGoals(){
   const totalIncome30 = sum(ops.map(o=>Number(o.amount||0)));
   const curMonthly = Math.round(totalIncome30); // simple approx for MVP
   $("#mot-cur").textContent = ruMoney(curMonthly);
-
   // next stage
   const stages = [...state.stages].sort((a,b)=>Number(a.amount)-Number(b.amount));
   const next = stages.find(s=>Number(s.amount) > curMonthly) || stages[stages.length-1];
