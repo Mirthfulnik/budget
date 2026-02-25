@@ -810,7 +810,9 @@ function openOpsFilterModal(){
     closeModal();
     try { localStorage.setItem("finance2026_ops_filters", JSON.stringify(state.opsFilters)); } catch(e){}
     updateOpsFilterBtnState();
-    renderOperations();
+    // Автоматически разворачиваем список чтобы показать все результаты фильтра
+    if (!state.ui.opsExpanded) setOpsExpanded(true);
+    else renderOperations();
   }, {once:true});
 
   $("#mf-reset").addEventListener("click", ()=>{
@@ -1436,7 +1438,7 @@ function renderOperations(){
     return;
   }
 
-  // ── РАЗВЁРНУТЫЙ режим: группировка по дням, последние 2 дня с операциями ──
+  // ── РАЗВЁРНУТЫЙ режим: группировка по всем дням из выбранного диапазона ──
   const groups = {};
   for (const o of ops){
     const d = isoDate(o.date || o.createdAt || new Date());
@@ -1445,8 +1447,10 @@ function renderOperations(){
 
   const dates = Object.keys(groups).sort((a,b)=> (a<b?1:-1));
 
-  // Берём последние 2 дня с операциями
-  const visibleDates = dates.slice(0, 2);
+  // Если фильтр по датам не задан — показываем последние 2 дня (дефолт).
+  // Если пользователь явно выбрал диапазон — показываем все дни.
+  const filterActive = opsFilterHasActive();
+  const visibleDates = filterActive ? dates : dates.slice(0, 2);
 
   const html = visibleDates.map(d=>{
     const dayOps = groups[d].slice().sort((a,b)=>{
