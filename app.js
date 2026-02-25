@@ -620,93 +620,6 @@ function closeModal(){ $("#modalBack").classList.remove("show"); }
 $("#modalClose").addEventListener("click", closeModal);
 $("#modalBack").addEventListener("click", (e)=>{ if(e.target.id==="modalBack") closeModal(); });
 
-/**
- * ============================
- *  HELP POPUP SYSTEM (П5)
- * ============================
- * Единый всплывающий попап для всех ❓ подсказок.
- * Позиционируется рядом с anchor-элементом, не выходит за viewport.
- */
-let _helpPopupAnchor = null;
-
-function showHelp(text, anchorEl){
-  const popup = $("#help-popup");
-  const textEl = $("#help-popup-text");
-  if (!popup || !textEl) return;
-
-  textEl.textContent = text;
-  popup.style.display = "block";
-
-  // Позиционирование: сначала рендерим чтобы знать размеры
-  popup.style.left = "0px";
-  popup.style.top  = "0px";
-
-  requestAnimationFrame(()=>{
-    const anchor = anchorEl.getBoundingClientRect();
-    const pw = popup.offsetWidth;
-    const ph = popup.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const margin = 8;
-
-    // Пробуем снизу anchor
-    let top  = anchor.bottom + margin;
-    let left = anchor.left;
-
-    // Не уходим за правый край
-    if (left + pw > vw - margin) left = vw - pw - margin;
-    if (left < margin) left = margin;
-
-    // Если снизу не влезает — показываем сверху
-    if (top + ph > vh - margin) top = anchor.top - ph - margin;
-    if (top < margin) top = margin;
-
-    popup.style.left = `${Math.round(left)}px`;
-    popup.style.top  = `${Math.round(top)}px`;
-  });
-
-  _helpPopupAnchor = anchorEl;
-}
-
-function hideHelp(){
-  const popup = $("#help-popup");
-  if (popup) popup.style.display = "none";
-  _helpPopupAnchor = null;
-}
-
-// Закрытие по кнопке ✕
-document.addEventListener("click", (e)=>{
-  // Кнопка закрытия попапа
-  if (e.target.id === "help-popup-close" || e.target.closest?.("#help-popup-close")){
-    hideHelp();
-    return;
-  }
-
-  // Клик по ❓ кнопке
-  const helpBtn = e.target.closest?.(".help-btn");
-  if (helpBtn){
-    const text = helpBtn.getAttribute("data-help") || "";
-    // Если уже открыт для этой же кнопки — закрываем (toggle)
-    if (_helpPopupAnchor === helpBtn){
-      hideHelp();
-    } else {
-      showHelp(text, helpBtn);
-    }
-    e.stopPropagation();
-    return;
-  }
-
-  // Клик вне попапа — закрываем
-  const popup = $("#help-popup");
-  if (popup && popup.style.display !== "none" && !popup.contains(e.target)){
-    hideHelp();
-  }
-}, true); // capture phase чтобы перехватить раньше других handlers
-
-// Закрытие по Escape
-document.addEventListener("keydown", (e)=>{
-  if (e.key === "Escape") hideHelp();
-});
 
 async function apiGet(params){
   const url = new URL(API_URL);
@@ -1754,7 +1667,6 @@ function openOpEdit(id){
       <div class="row" id="edit-op-transfer-fxrow">
         <div class="field"><label>Курс</label><input id="edit-op-fx" type="number" step="0.0001" inputmode="decimal" placeholder="например 93.5" /></div>
         <div class="field"><label>Сумма зачисления</label><input id="edit-op-amount-to" type="number" step="0.01" inputmode="decimal" placeholder="0" /></div>
-        <button class="help-btn" data-help="«Сумма» — это сумма списания со счёта отправителя. «Сумма зачисления» считается по курсу автоматически, но можно ввести вручную." aria-label="Подсказка" style="align-self:center">❓</button>
       </div>
     </div>
 
@@ -2086,7 +1998,6 @@ function renderDashboard(){
   const curIncome = sum(curOps.filter(o=>o.type==="income").map(o=>Number(o.amount||0)));
   const curExpense = sum(curOps.filter(o=>o.type==="expense").map(o=>Number(o.amount||0)));
   const curBalance = curIncome - curExpense;
-
   const prevIncome = sum(prevOps.filter(o=>o.type==="income").map(o=>Number(o.amount||0)));
   const prevExpense = sum(prevOps.filter(o=>o.type==="expense").map(o=>Number(o.amount||0)));
   const prevBalance = prevIncome - prevExpense;
@@ -3241,7 +3152,7 @@ function openGoalEdit(id){
     <div class="row">
       <button class="btn" id="g-save">Сохранить</button>
       <button class="btn secondary" id="g-cancel">Отмена</button>
-      <button class="help-btn" data-help="Рекомендации по ежемесячному накоплению отображаются в разделе «Пульт → План накоплений»." aria-label="Подсказка" style="flex:0 0 auto">❓</button>
+
     </div>
   `;
   openModal(g ? "Редактировать цель" : "Новая цель", html);
@@ -3449,7 +3360,7 @@ function openCategoryEditor(id){
     <div class="row">
       <button class="btn" id="c-save">Сохранить</button>
       <button class="btn secondary" id="c-cancel">Отмена</button>
-      <button class="help-btn" data-help="После сохранения категория появится в форме «Новая операция» на Пульте." aria-label="Подсказка" style="flex:0 0 auto">❓</button>
+
     </div>
   `;
   openModal(c ? "Редактировать категорию" : "Новая категория", html);
@@ -3521,7 +3432,7 @@ function openSubcategoryEditor(id){
     <div class="row">
       <button class="btn" id="sc-save">Сохранить</button>
       <button class="btn secondary" id="sc-cancel">Отмена</button>
-      <button class="help-btn" data-help="Подкатегории используются при добавлении операции: выбирается «Категория + Подкатегория»." aria-label="Подсказка" style="flex:0 0 auto">❓</button>
+
     </div>
   `;
   openModal(sc ? "Редактировать подкатегорию" : "Новая подкатегория", html);
@@ -3599,7 +3510,7 @@ function openAccountEditor(id){
     <div class="row">
       <button class="btn" id="a-save">Сохранить</button>
       <button class="btn secondary" id="a-cancel">Отмена</button>
-      <button class="help-btn" data-help="После сохранения счёт появится в выборе «Счёт» при добавлении операции и в разделе аналитики." aria-label="Подсказка" style="flex:0 0 auto">❓</button>
+
     </div>
   `;
   openModal(a ? "Редактировать счёт" : "Новый счёт", html);
@@ -3689,7 +3600,7 @@ function openLimitEditor(lim, title="Лимит"){
     <div class="row">
       <button class="btn" id="l-save">Сохранить</button>
       <button class="btn secondary" id="l-cancel">Отмена</button>
-      <button class="help-btn" data-help="Лимит задаётся на конкретный месяц (YYYY-MM) и категорию расходов. Чтобы отключить лимит — поставь 0." aria-label="Подсказка" style="flex:0 0 auto">❓</button>
+
     </div>
   `;
   openModal(title, html);
