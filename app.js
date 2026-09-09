@@ -620,6 +620,9 @@ function closeModal(){ $("#modalBack").classList.remove("show"); }
 $("#modalClose").addEventListener("click", closeModal);
 $("#modalBack").addEventListener("click", (e)=>{ if(e.target.id==="modalBack") closeModal(); });
 
+/* === Мост для pet.js (виджет-питомец) === */
+window.__FIN__ = { state, openModal, closeModal };
+
 
 async function apiGet(params){
   const url = new URL(API_URL);
@@ -1073,6 +1076,7 @@ function renderAll(){
   if ($("#page-dashboard").classList.contains("active")) renderDashboard();
   if ($("#page-goals").classList.contains("active")) renderGoals();
   if ($("#page-settings").classList.contains("active")) renderSettings();
+  try { window.PixelPet?.refresh(); } catch(e){}
 }
 
 function updateOpCurrencyBadge(){
