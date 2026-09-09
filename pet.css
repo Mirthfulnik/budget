@@ -1,0 +1,195 @@
+/* ============================
+ *  PIXEL PET — стили попапа
+ *  Использует переменные из style.css (--card, --line, --ok, --danger…)
+ * ============================ */
+
+.petDock,
+.petBubble {
+  position: fixed;
+  right: 16px;
+  /* всегда над нижней навигацией */
+  bottom: calc(10px + var(--safeB) + var(--navH) + 12px);
+  z-index: 60;
+}
+
+.petDock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  width: 208px;
+  background: rgba(23, 26, 34, .92);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  user-select: none;
+  transition: transform .16s ease, opacity .16s ease, border-color .3s ease;
+}
+
+.petDock:hover { transform: translateY(-2px); }
+.petDock:active { transform: translateY(0); opacity: .9; }
+.petDock.hidden { display: none; }
+
+.petDock.fed { border-color: rgba(65, 211, 141, .45); }
+.petDock.panic { border-color: rgba(255, 91, 110, .55); animation: petPanic 1.6s ease-in-out infinite; }
+.petDock.dead { border-color: rgba(255, 91, 110, .8); }
+.petDock.dead .petCanvas { filter: grayscale(.5); }
+
+@keyframes petPanic {
+  0%, 100% { box-shadow: var(--shadow); }
+  50%      { box-shadow: 0 0 0 3px rgba(255, 91, 110, .16), var(--shadow); }
+}
+
+.petCanvas,
+.petCanvasMini,
+.petModalCanvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.petDockInfo { flex: 1 1 auto; min-width: 0; }
+
+.petDockName {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: .3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.petDockTimer {
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .5px;
+  color: var(--text);
+  margin: 1px 0 6px;
+}
+.petDockTimer.ok { color: var(--ok); font-size: 14px; }
+.petDockTimer.danger { color: var(--danger); }
+
+/* Полоска здоровья */
+.petHpBar {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .09);
+  overflow: hidden;
+}
+.petHpBar > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: var(--ok);
+  transition: width .5s ease, background .5s ease;
+}
+.petHpBar.big { height: 10px; margin: 14px 0 6px; }
+
+/* Кнопка «свернуть» */
+.petDockHide {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.petDock:hover .petDockHide { opacity: 1; }
+@media (hover: none) { .petDockHide { opacity: 1; } }
+
+/* Свёрнутый режим — маленький пузырь */
+.petBubble {
+  display: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 26, 34, .92);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  padding: 0;
+}
+.petBubble.show { display: flex; }
+
+/* Прячем всё, пока не пройдена авторизация */
+html.auth-locked .petDock,
+html.auth-locked .petBubble { display: none !important; }
+
+/* ============================
+ *  Модалка состояния
+ * ============================ */
+.petModalTop { display: flex; gap: 14px; align-items: center; }
+.petModalCanvas { flex: 0 0 auto; }
+.petModalMeta { min-width: 0; }
+.petModalName { font-size: 18px; font-weight: 800; }
+.petModalMood { font-size: 13px; font-weight: 800; margin-top: 2px; }
+.petModalHint { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+
+.petHpNum {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+
+.petStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.petStat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.petStat .k { font-size: 12px; color: var(--muted); }
+.petStat b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.petStat b.ok { color: var(--ok); }
+.petStat b.danger { color: var(--danger); }
+
+.petWarn {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid var(--line);
+}
+.petWarn.ok { border-color: rgba(65, 211, 141, .35); background: rgba(65, 211, 141, .08); }
+.petWarn.warn { border-color: rgba(255, 204, 102, .35); background: rgba(255, 204, 102, .08); }
+.petWarn.dead { border-color: rgba(255, 91, 110, .4); background: rgba(255, 91, 110, .09); }
+
+.petActions { display: flex; gap: 8px; margin-top: 14px; }
+.petActions .btn { flex: 1 1 auto; }
+
+@media (max-width: 560px) {
+  .petDock { width: 178px; padding: 9px 12px 9px 9px; }
+  .petDockTimer { font-size: 15px; }
+  .petStats { grid-template-columns: 1fr; }
+}
