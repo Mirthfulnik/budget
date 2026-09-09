@@ -6,18 +6,18 @@
 .petDock,
 .petBubble {
   position: fixed;
-  right: 16px;
-  /* всегда над нижней навигацией */
-  bottom: calc(10px + var(--safeB) + var(--navH) + 12px);
+  right: 14px;
+  /* верхний правый угол — не конфликтует с нижней навигацией и FAB */
+  top: calc(12px + var(--safeT));
   z-index: 60;
 }
 
 .petDock {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px 10px 10px;
-  width: 208px;
+  gap: 9px;
+  padding: 7px 11px 7px 8px;
+  width: 156px;
   background: rgba(23, 26, 34, .92);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -42,19 +42,24 @@
   50%      { box-shadow: 0 0 0 3px rgba(255, 91, 110, .16), var(--shadow); }
 }
 
-.petCanvas,
-.petCanvasMini,
-.petModalCanvas {
+/* Перебиваем глобальное правило canvas{width:100%;height:260px} из style.css.
+   Размеры обязаны совпадать с 16 * scale из pet.js, иначе спрайт замылит. */
+.petDock .petCanvas,
+.petBubble .petCanvasMini,
+.petModal .petModalCanvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   display: block;
   flex: 0 0 auto;
 }
+.petDock .petCanvas       { width: 48px !important; height: 51px !important; }
+.petBubble .petCanvasMini { width: 32px !important; height: 34px !important; }
+.petModal .petModalCanvas { width: 96px !important; height: 102px !important; }
 
 .petDockInfo { flex: 1 1 auto; min-width: 0; }
 
 .petDockName {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   color: var(--muted);
   letter-spacing: .3px;
@@ -64,19 +69,19 @@
 }
 
 .petDockTimer {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: .5px;
   color: var(--text);
-  margin: 1px 0 6px;
+  margin: 0 0 5px;
 }
-.petDockTimer.ok { color: var(--ok); font-size: 14px; }
+.petDockTimer.ok { color: var(--ok); font-size: 12px; }
 .petDockTimer.danger { color: var(--danger); }
 
 /* Полоска здоровья */
 .petHpBar {
-  height: 6px;
+  height: 5px;
   border-radius: 99px;
   background: rgba(255, 255, 255, .09);
   overflow: hidden;
@@ -118,8 +123,8 @@
 /* Свёрнутый режим — маленький пузырь */
 .petBubble {
   display: none;
-  width: 54px;
-  height: 54px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   align-items: center;
   justify-content: center;
@@ -189,7 +194,8 @@ html.auth-locked .petBubble { display: none !important; }
 .petActions .btn { flex: 1 1 auto; }
 
 @media (max-width: 560px) {
-  .petDock { width: 178px; padding: 9px 12px 9px 9px; }
-  .petDockTimer { font-size: 15px; }
+  .petDock { width: 138px; padding: 6px 9px 6px 7px; gap: 7px; }
+  .petDock .petCanvas { width: 40px !important; height: 43px !important; }
+  .petDockTimer { font-size: 13px; }
   .petStats { grid-template-columns: 1fr; }
 }
