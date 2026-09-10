@@ -28,11 +28,51 @@
     HUNGER_START_HOUR: 10,      // до этого часа питомец полон сил, дальше HP тает
     PANIC_HOURS: 3,             // за сколько часов до полуночи включается паника
     NO_OPS_UNLOCK_HOUR: 23,     // с какого часа доступна кнопка «Операций нет»
-    STORAGE_KEY: "finance2026_pet_v2",
+    TRACK_WINDOW_DAYS: 30,      // насколько глубоко смотреть историю операций
+    EPOCH: "2026-09-11",        // раньше этой даты дни не судим (день выката фичи),
+                                // иначе старая история задним числом хоронит духов
+    STORAGE_KEY: "finance2026_pet_v3",
     PIXEL_SCALE: 3              // размер пикселя спрайта в попапе (16*3 = 48px)
   };
 
-  const NAMES = ["Мшуня", "Пухля", "Уголёк", "Тиша", "Кувшинка"];
+  /* Имя и цвет листа выводятся из даты рождения духа, а не выбираются
+     случайно — иначе на телефоне и на компьютере родились бы разные духи. */
+  const NAMES = [
+    "Мшуня", "Пухля", "Уголёк", "Тиша", "Кувшинка", "Ворсик", "Клёцка", "Хмурик",
+    "Бусинка", "Пыжик", "Тучка", "Лапушь", "Совик", "Крошка", "Дымок", "Пенёк"
+  ];
+
+  /* Цвет листа — «паспорт» духа. Виден, пока он здоров;
+     при падении HP лист всё равно желтеет и буреет. */
+  const LEAVES = [
+    { L: "#41d38d", s: "#2f8f63" },  // изумруд
+    { L: "#57a6ff", s: "#2f6aa8" },  // незабудка
+    { L: "#c98bff", s: "#7b4da8" },  // сирень
+    { L: "#ff8fb1", s: "#a85472" },  // вереск
+    { L: "#7fe3d4", s: "#3f8d84" },  // мята
+    { L: "#ffd166", s: "#a8853f" },  // янтарь
+    { L: "#a3e635", s: "#61892a" },  // липа
+    { L: "#ff9f6e", s: "#a85f3c" }   // рябина
+  ];
+
+  /* Стабильный хеш строки — одинаковый на всех устройствах */
+  function hashStr(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h);
+  }
+
+  function spiritOf(birthISO) {
+    const h = hashStr(birthISO);
+    return {
+      birth: birthISO,
+      name: NAMES[h % NAMES.length],
+      leaf: LEAVES[Math.floor(h / NAMES.length) % LEAVES.length]
+    };
+  }
 
   /* ============================
    *  СПРАЙТ 16×16
@@ -70,13 +110,14 @@
   };
 
   /* Палитры под настроение */
-  function paletteFor(mood) {
+  function paletteFor(mood, leaf) {
     const p = Object.assign({}, PAL_BASE);
-    if (mood === "happy") { p.L = "#41d38d"; p.s = "#2f8f63"; }
-    if (mood === "ok") { p.L = "#7fce7a"; p.s = "#4d8f4a"; }
+    if (leaf) { p.L = leaf.L; p.s = leaf.s; }
+    if (mood === "ok" && leaf) { p.L = mix(leaf.L, "#9aa3b2", 0.25); }
     if (mood === "sad") {
       p.G = "#7b8294"; p.W = "#d5dae4"; p.L = "#ffcc66"; p.s = "#a8853f";
     }
+    // sad / critical / dead перебивают цвет духа — увядание одинаково для всех
     if (mood === "critical") {
       p.G = "#6e7383"; p.W = "#c4c9d3"; p.L = "#e08a4a"; p.s = "#8a5a2f";
     }
@@ -85,6 +126,13 @@
       p.L = "#5a5f6b"; p.s = "#4a4e5a"; p.E = "#9aa3b2"; p.w = "#4a4e5a";
     }
     return p;
+  }
+
+  function mix(hexA, hexB, t) {
+    const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const a = p(hexA), b = p(hexB);
+    const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+    return "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
   }
 
   /* Патчи глаз/лица под настроение: [row, col, char] */
@@ -133,6 +181,18 @@
     return isoOf(dt);
   }
 
+  function shiftISO(iso, delta) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + delta);
+    return isoOf(dt);
+  }
+
+  function daysBetween(a, b) {
+    const p = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+    return Math.round((p(b) - p(a)) / 86400000);
+  }
+
   function prevISO(iso) {
     const [y, m, d] = iso.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
@@ -149,6 +209,22 @@
   function fmtHMS(ms) {
     const s = Math.floor(ms / 1000);
     return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}`;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, (ch) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+  }
+
+  /* Имена в списке разного рода — подставляем окончание */
+  function fem(name) {
+    return /[ая]$/i.test(name) ? "а" : "";
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
   }
 
   function plural(n, one, few, many) {
@@ -188,19 +264,18 @@
   }
 
   /* ============================
-   *  ПЕРСИСТЕНТНОЕ СОСТОЯНИЕ
-   * ============================ */
+   *  ЛОКАЛЬНОЕ СОСТОЯНИЕ
+   * ============================
+   * Здесь лежит только то, чего нет на сервере: дни, закрытые кнопкой
+   * «Операций нет», ручные переименования и свёрнутость попапа.
+   * Всё остальное — жив ли дух, как его зовут, сколько дней он прожил —
+   * ВЫЧИСЛЯЕТСЯ из операций. Операции синхронизируются, поэтому телефон
+   * и компьютер приходят к одному и тому же ответу.
+   */
   function defaultState() {
     return {
-      name: NAMES[Math.floor(Math.random() * NAMES.length)],
-      lastDay: todayISO(),
-      manualCloseDay: null,   // день, закрытый кнопкой «Операций нет» (YYYY-MM-DD)
-      streak: 0,
-      bestStreak: 0,
-      missedTotal: 0,
-      dead: false,
-      diedAt: null,
-      revives: 0,
+      manualDays: [],   // ["YYYY-MM-DD"] — дни, закрытые вручную
+      names: {},        // { "дата рождения духа": "имя" } — ручные переименования
       collapsed: false
     };
   }
@@ -209,7 +284,10 @@
     try {
       const raw = localStorage.getItem(CFG.STORAGE_KEY);
       if (!raw) return defaultState();
-      return Object.assign(defaultState(), JSON.parse(raw));
+      const s = Object.assign(defaultState(), JSON.parse(raw));
+      if (!Array.isArray(s.manualDays)) s.manualDays = [];
+      if (!s.names || typeof s.names !== "object") s.names = {};
+      return s;
     } catch (e) { return defaultState(); }
   }
 
@@ -219,65 +297,97 @@
 
   let pet = load();
 
-  /* День считается закрытым, если по нему есть операции
-     ИЛИ владелец явно нажал «Операций нет». */
-  function isDayClosed(iso, ops) {
-    if (pet.manualCloseDay === iso) return true;
-    return dayOps(iso, ops).length > 0;
-  }
-
-  /* Закрыть сегодняшний день вручную — кнопка «Операций нет» */
   function canDeclareEmpty() {
     return new Date().getHours() >= CFG.NO_OPS_UNLOCK_HOUR;
   }
 
+  /* Закрыть сегодняшний день вручную — кнопка «Операций нет» */
   function closeTodayManually() {
     if (!canDeclareEmpty()) return false;   // рано — день ещё может случиться
-    pet.manualCloseDay = todayISO();
-    if (pet.dead) { pet.dead = false; pet.diedAt = null; pet.revives += 1; }
+    const t = todayISO();
+    if (!pet.manualDays.includes(t)) pet.manualDays.push(t);
     save(pet);
     refresh(true);
     return true;
   }
 
-  /* Подводим итог прошедшим дням.
-     Состояние живёт один день, поэтому HP не переносится: важен только
-     факт «последний прошедший день закрыт или нет». */
-  function settleDays(ops) {
-    if (!ops) return false;               // данных нет — судить не за что
+  /* ============================
+   *  ВЫВОД СОСТОЯНИЯ ИЗ ОПЕРАЦИЙ
+   * ============================ */
+  let cache = { key: "", value: null };
+
+  function analyze(ops) {
     const today = todayISO();
-    if (pet.lastDay === today) return false;
-    if (!pet.lastDay || pet.lastDay > today) { pet.lastDay = today; save(pet); return true; }
+    const key = today + "|" + (ops ? ops.length : "x") + "|" + pet.manualDays.join(",");
+    if (cache.key === key) return cache.value;
 
-    let cursor = pet.lastDay;
-    let guard = 0;
-    let lastClosed = false;
-    while (cursor < today && guard++ < 400) {
-      if (isDayClosed(cursor, ops)) {
-        pet.streak += 1;
-        pet.bestStreak = Math.max(pet.bestStreak, pet.streak);
-        lastClosed = true;
-      } else {
-        pet.streak = 0;
-        pet.missedTotal += 1;
-        lastClosed = false;
+    const withOps = new Set();
+    let earliest = null;
+    if (ops) {
+      for (const o of ops) {
+        const d = opDateISO(o);
+        if (!d) continue;
+        withOps.add(d);
+        if (!earliest || d < earliest) earliest = d;
       }
-      cursor = nextISO(cursor);
+    }
+    const manual = new Set(pet.manualDays);
+    const closed = (iso) => withOps.has(iso) || manual.has(iso);
+
+    /* Окно наблюдения ограничено с трёх сторон:
+       — не глубже TRACK_WINDOW_DAYS,
+       — не раньше EPOCH (иначе прошлое задним числом убивает духов),
+       — не раньше первой операции (иначе новый пользователь стартует с кладбищем). */
+    let start = shiftISO(today, -CFG.TRACK_WINDOW_DAYS);
+    if (CFG.EPOCH > start) start = CFG.EPOCH;
+    const anchor = earliest || today;
+    if (anchor > start) start = anchor;
+    if (start > today) start = today;
+
+    // все незакрытые дни до сегодня — это смерти
+    const deaths = [];
+    for (let d = start; d < today; d = nextISO(d)) {
+      if (!closed(d)) deaths.push(d);
     }
 
-    // жив ровно тогда, когда закрыт последний прошедший день
-    if (lastClosed) {
-      pet.dead = false;
-      pet.diedAt = null;
+    const yesterday = prevISO(today);
+    const todayClosed = closed(today);
+    const diedLastNight = yesterday >= start && !closed(yesterday);
+    const isDead = diedLastNight && !todayClosed;
+
+    // дата рождения текущего духа
+    let birth;
+    if (isDead) {
+      // показываем того, кто вчера погиб: он родился после предыдущей смерти
+      const prevDeath = deaths.length > 1 ? deaths[deaths.length - 2] : null;
+      birth = prevDeath ? nextISO(prevDeath) : start;
+    } else if (deaths.length) {
+      birth = nextISO(deaths[deaths.length - 1]);
     } else {
-      pet.dead = true;
-      pet.diedAt = pet.diedAt || prevISO(today);
+      birth = start;
     }
+    if (birth > today) birth = today;
 
-    pet.lastDay = today;
-    if (pet.manualCloseDay && pet.manualCloseDay < today) pet.manualCloseDay = null;
-    save(pet);
-    return true;
+    // серия закрытых дней подряд, заканчивая вчерашним, плюс сегодня
+    let streak = 0;
+    for (let d = yesterday; d >= birth && closed(d); d = prevISO(d)) streak++;
+    if (todayClosed && !isDead) streak++;
+
+    const lifeEnd = isDead ? yesterday : today;
+    const lifeDays = Math.max(1, daysBetween(birth, lifeEnd) + 1);
+
+    const sp = spiritOf(birth);
+    if (pet.names[birth]) sp.name = pet.names[birth];
+
+    const value = {
+      spirit: sp, isDead, todayClosed,
+      hasOpsToday: withOps.has(today),
+      manualToday: manual.has(today),
+      deaths: deaths.length, streak, lifeDays,
+      diedAt: isDead ? yesterday : null
+    };
+    cache = { key, value };
+    return value;
   }
 
   /* ============================
@@ -285,31 +395,14 @@
    * ============================ */
   function compute() {
     const ops = getOps();
-    settleDays(ops);
+    const a = analyze(ops);
 
-    const today = todayISO();
-    const todays = dayOps(today, ops);
-    const hasOps = todays.length > 0;
-    const manual = pet.manualCloseDay === today;
-    const closed = hasOps || manual;
-
-    // закрыли день — мёртвый оживает на полные силы
-    if (pet.dead && closed) {
-      pet.dead = false;
-      pet.diedAt = null;
-      pet.revives += 1;
-      save(pet);
-    }
-
-    // HP — чисто функция текущего дня, ничего не копится
     const now = new Date();
     const hour = now.getHours() + now.getMinutes() / 60;
     let shownHp;
-    if (pet.dead) {
+    if (a.isDead) {
       shownHp = 0;
-    } else if (closed) {
-      shownHp = CFG.MAX_HP;
-    } else if (hour <= CFG.HUNGER_START_HOUR) {
+    } else if (a.todayClosed || hour <= CFG.HUNGER_START_HOUR) {
       shownHp = CFG.MAX_HP;
     } else {
       const span = 24 - CFG.HUNGER_START_HOUR;
@@ -318,19 +411,22 @@
     }
 
     const msLeft = msUntilMidnight();
-    const panic = !closed && !pet.dead && msLeft < CFG.PANIC_HOURS * 3600 * 1000;
+    const panic = !a.todayClosed && !a.isDead && msLeft < CFG.PANIC_HOURS * 3600 * 1000;
 
     let mood = "happy";
-    if (pet.dead) mood = "dead";
+    if (a.isDead) mood = "dead";
     else if (shownHp < 25) mood = "critical";
     else if (shownHp < 55) mood = "sad";
     else if (shownHp < 80) mood = "ok";
 
+    const todays = dayOps(todayISO(), ops);
     return {
-      ops, closed, hasOps, manual, todays, shownHp, mood, msLeft, panic,
+      ops, todays, shownHp, mood, msLeft, panic,
+      closed: a.todayClosed, hasOps: a.hasOpsToday, manual: a.manualToday,
+      dead: a.isDead, spirit: a.spirit, deaths: a.deaths,
+      streak: a.streak, lifeDays: a.lifeDays, diedAt: a.diedAt,
       canDeclare: canDeclareEmpty(),
-      dataReady: !!ops,
-      todayAmount: todays.reduce((a, o) => a + (Number(o.amount) || 0), 0)
+      dataReady: !!ops
     };
   }
 
@@ -352,7 +448,7 @@
       if (grid[r] && grid[r][c] !== undefined) grid[r][c] = ch;
     });
 
-    const pal = paletteFor(mood);
+    const pal = paletteFor(mood, opts.leaf);
     const bob = opts.bob || 0;
 
     for (let r = 0; r < 16; r++) {
@@ -440,7 +536,7 @@
 
   function statusLine(c) {
     if (!c.dataReady) return "Жду данные с сервера…";
-    if (c.mood === "dead") return "Не дождался. Закрой сегодняшний день — вернётся.";
+    if (c.dead) return "Дух ушёл насовсем. Закрой сегодняшний день — придёт новый.";
     if (c.manual && !c.hasOps) return "День отмечен как пустой. Это тоже считается — всё в порядке.";
     if (c.closed) return "День закрыт. Завтра начнём заново.";
     if (c.mood === "critical") {
@@ -453,19 +549,20 @@
   }
 
   function moodWord(m) {
-    return { happy: "Отлично", ok: "Нормально", sad: "Грустит", critical: "Критично", dead: "Мёртв" }[m] || "—";
+    return { happy: "Отлично", ok: "Нормально", sad: "Грустит", critical: "Критично", dead: "Погиб" }[m] || "—";
   }
 
   function modalHtml(c) {
     const hpColor = c.shownHp >= 55 ? "var(--ok)" : c.shownHp >= 25 ? "var(--warn)" : "var(--danger)";
     const closedBy = c.hasOps ? "операциями" : c.manual ? "вручную" : "";
+    const leafDot = `<i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c.spirit.leaf.L};vertical-align:middle;margin-right:6px"></i>`;
     return `
       <div class="petModal">
         <div class="petModalTop">
           <canvas id="petModalCanvas" class="petModalCanvas"></canvas>
           <div class="petModalMeta">
-            <div class="petModalName">${pet.name}</div>
-            <div class="petModalMood" style="color:${hpColor}">${moodWord(c.mood)}</div>
+            <div class="petModalName">${leafDot}${esc(c.spirit.name)}</div>
+            <div class="petModalMood" style="color:${c.dead ? "var(--danger)" : hpColor}">${moodWord(c.mood)}</div>
             <div class="petModalHint">${statusLine(c)}</div>
           </div>
         </div>
@@ -487,13 +584,21 @@
             <b class="${c.closed ? "ok" : "danger"}">${c.closed ? "да · " + closedBy : "нет"}</b>
           </div>
           <div class="petStat">
-            <span class="k">Дней подряд</span><b>${pet.streak}${pet.bestStreak ? ` <span style="color:var(--muted);font-weight:600">/ ${pet.bestStreak}</span>` : ""}</b>
+            <span class="k">${c.dead ? "Прожил" : "Живёт"}</span>
+            <b>${c.lifeDays} ${plural(c.lifeDays, "день", "дня", "дней")}</b>
+          </div>
+          <div class="petStat">
+            <span class="k">Дней подряд</span><b>${c.streak}</b>
+          </div>
+          <div class="petStat">
+            <span class="k">Духов потеряно</span>
+            <b class="${c.deaths ? "danger" : ""}">${c.deaths}</b>
           </div>
         </div>
 
-        <div class="petWarn ${c.mood === "dead" ? "dead" : c.closed ? "ok" : "warn"}">
-          ${c.mood === "dead"
-            ? "Питомец умер. Закрой сегодняшний день — он вернётся на полные " + CFG.MAX_HP + " HP."
+        <div class="petWarn ${c.dead ? "dead" : c.closed ? "ok" : "warn"}">
+          ${c.dead
+            ? `${esc(c.spirit.name)} не пережил${fem(c.spirit.name)} ${fmtDate(c.diedAt)} и ушёл${fem(c.spirit.name)} навсегда — воскресить нельзя. Закрой сегодняшний день, и придёт новый дух, со своим именем и цветом листа.`
             : c.closed
               ? "Сегодня всё в порядке. В полночь HP снова станет полным."
               : c.canDeclare
@@ -508,7 +613,7 @@
             : ""}
         </div>
         <div class="petActions petActionsSub">
-          <button class="btn ghost small" id="petRename">Переименовать</button>
+          ${!c.dead ? '<button class="btn ghost small" id="petRename">Переименовать</button>' : ""}
           ${c.manual && !c.hasOps ? '<button class="btn ghost small" id="petUndoNoOps">Отменить «нет операций»</button>' : ""}
         </div>
       </div>
@@ -550,7 +655,7 @@
 
     const undo = document.getElementById("petUndoNoOps");
     if (undo) undo.addEventListener("click", () => {
-      pet.manualCloseDay = null;
+      pet.manualDays = pet.manualDays.filter((d) => d !== todayISO());
       save(pet);
       refresh(true);
       openPetModal();
@@ -558,14 +663,20 @@
 
     const ren = document.getElementById("petRename");
     if (ren) ren.addEventListener("click", () => {
-      const v = prompt("Как его зовут?", pet.name);
-      if (v && v.trim()) { pet.name = v.trim().slice(0, 24); save(pet); refresh(true); }
+      const cur = compute().spirit;
+      const v = prompt("Как его зовут?", cur.name);
+      if (v && v.trim()) {
+        pet.names[cur.birth] = v.trim().slice(0, 24);
+        save(pet);
+        refresh(true);
+        openPetModal();
+      }
     });
   }
 
   function paintModalSprite(c) {
     const cv = document.getElementById("petModalCanvas");
-    if (cv) drawSprite(cv, c.mood, { scale: 6, bob: 0 });
+    if (cv) drawSprite(cv, c.mood, { scale: 6, bob: 0, leaf: c.spirit.leaf });
   }
 
   /* ============================
@@ -580,7 +691,7 @@
     const c = compute();
 
     // таймер + hp-бар
-    el.name.textContent = pet.name;
+    el.name.textContent = c.spirit.name;
     el.timer.textContent = c.closed ? "день закрыт" : fmtHMS(c.msLeft);
     el.timer.classList.toggle("ok", c.closed);
     el.timer.classList.toggle("danger", c.panic || c.mood === "dead");
@@ -589,7 +700,7 @@
       c.shownHp >= 55 ? "var(--ok)" : c.shownHp >= 25 ? "var(--warn)" : "var(--danger)";
 
     el.dock.classList.toggle("panic", c.panic || c.mood === "critical");
-    el.dock.classList.toggle("dead", c.mood === "dead");
+    el.dock.classList.toggle("dead", c.dead);
     el.dock.classList.toggle("fed", c.closed);
 
     // моргание
@@ -600,8 +711,8 @@
     // покачивание
     const bob = c.mood === "dead" ? 1 : (Math.sin(tick / 8) > 0 ? 0 : 1);
 
-    drawSprite(el.canvas, c.mood, { scale: CFG.PIXEL_SCALE, bob, blink, tear: c.mood === "critical" });
-    if (pet.collapsed) drawSprite(el.canvasMini, c.mood, { scale: 2, bob, blink });
+    drawSprite(el.canvas, c.mood, { scale: CFG.PIXEL_SCALE, bob, blink, leaf: c.spirit.leaf, tear: c.mood === "critical" });
+    if (pet.collapsed) drawSprite(el.canvasMini, c.mood, { scale: 2, bob, blink, leaf: c.spirit.leaf });
 
     if (modalOpen && document.getElementById("petModalCanvas")) {
       // кнопка «Операций нет» могла разблокироваться прямо сейчас — пересобираем
@@ -636,8 +747,9 @@
     closeToday: closeTodayManually,   // вернёт false, если ещё рано
     canCloseToday: canDeclareEmpty,
     open: openPetModal,
-    reset: () => { pet = defaultState(); save(pet); refresh(true); },
-    _state: () => pet
+    reset: () => { pet = defaultState(); cache = { key: "", value: null }; save(pet); refresh(true); },
+    _state: () => pet,
+    _compute: () => compute()
   };
 
   if (document.readyState === "loading") {
