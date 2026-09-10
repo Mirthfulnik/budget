@@ -2,9 +2,15 @@
  * ============================
  *  PIXEL PET — «Лесной дух»
  * ============================
- * Попап в правом нижнем углу: пиксельный питомец + таймер до конца дня.
- * Если за сегодняшний день не внесено ни одной операции — к полуночи
- * питомец теряет здоровье. Три пропущенных дня подряд — умирает.
+ * Попап в правом верхнем углу: пиксельный питомец + таймер до конца дня.
+ *
+ * Состояние живёт ровно один день. Утром питомец всегда на 100 HP, в течение
+ * дня HP тает, к полуночи доходит до нуля. Чтобы он дожил до завтра, день нужно
+ * «закрыть»: либо внести операцию, либо нажать «Операций нет» — это честный
+ * вариант для дней, когда трат действительно не было. Кнопка открывается
+ * только после NO_OPS_UNLOCK_HOUR, чтобы ей не закрывали день с утра.
+ * Не закрыл до полуночи — питомец умирает. Закрытие любого следующего дня
+ * возвращает его к жизни на полные 100 HP.
  *
  * Клик по попапу → модалка с полным состоянием.
  *
@@ -19,14 +25,11 @@
    * ============================ */
   const CFG = {
     MAX_HP: 100,
-    DAMAGE_PER_MISSED_DAY: 40,  // сколько HP теряется за день без операций
-    HEAL_PER_FED_DAY: 25,       // сколько HP возвращается за день с операциями
-    REVIVE_HP: 30,              // с каким HP оживает после смерти
-    HUNGER_START_HOUR: 10,      // с какого часа начинает «худеть» на глазах
-    HUNGER_MAX: 40,             // визуальный штраф к HP к полуночи, если не покормлен
+    HUNGER_START_HOUR: 10,      // до этого часа питомец полон сил, дальше HP тает
     PANIC_HOURS: 3,             // за сколько часов до полуночи включается паника
-    STORAGE_KEY: "finance2026_pet_v1",
-    PIXEL_SCALE: 5              // размер пикселя спрайта в попапе
+    NO_OPS_UNLOCK_HOUR: 23,     // с какого часа доступна кнопка «Операций нет»
+    STORAGE_KEY: "finance2026_pet_v2",
+    PIXEL_SCALE: 3              // размер пикселя спрайта в попапе (16*3 = 48px)
   };
 
   const NAMES = ["Мшуня", "Пухля", "Уголёк", "Тиша", "Кувшинка"];
@@ -42,22 +45,22 @@
    *   s стебель      w ус
    */
   const SPRITE = [
-    "........s.......",
-    ".....LLLsLLL....",
-    "......LLLL......",
-    "..BB........BB..",
-    "..BGB......BGB..",
-    ".BGGGBBBBBBGGGB.",
-    ".BGGGGGGGGGGGGB.",
+    "................",
+    ".........LLL....",
+    "........LLLL....",
+    "...BB...sLLBB...",
+    "..BGGB..s.BGGB..",
+    "...BGGBBBBGGB...",
+    "..BGGGGGGGGGGB..",
     ".BGEEGGGGGGEEGB.",
     ".BGEPGGGGGGPEGB.",
-    "wBGGGGGNNGGGGGBw",
+    ".BGGGGGNNGGGGGB.",
+    ".BGGGGGNNGGGGGB.",
     ".BGGGWWWWWWGGGB.",
-    ".BGGWWgWWgWWGGB.",
-    ".BGGWWWWWWWWGGB.",
-    "..BGWWgWWgWWGB..",
-    "..BBGGGGGGGGBB..",
-    "...BBB....BBB..."
+    "..BGWWWWWWWWGB..",
+    "..BGWgWWWWgWGB..",
+    "...BGWWWWWWGB...",
+    "....BBBBBBBB...."
   ];
 
   const PAL_BASE = {
@@ -108,10 +111,10 @@
       // глаза-крестики
       px.push([7, 3, "P"], [7, 4, "E"], [7, 11, "E"], [7, 12, "P"]);
       px.push([8, 3, "E"], [8, 4, "P"], [8, 11, "P"], [8, 12, "E"]);
-      // лист отваливается
-      px.push([0, 8, "."], [1, 5, "."], [1, 6, "."], [1, 7, "."],
-              [1, 8, "."], [1, 9, "."], [1, 10, "."], [1, 11, "."],
-              [2, 6, "."], [2, 7, "."], [2, 8, "."], [2, 9, "."]);
+      // лист опадает, остаётся голый стебель
+      px.push([1, 9, "."], [1, 10, "."], [1, 11, "."],
+              [2, 8, "."], [2, 9, "."], [2, 10, "."], [2, 11, "."],
+              [3, 9, "."], [3, 10, "."]);
     }
     return px;
   }
@@ -127,6 +130,13 @@
     const [y, m, d] = iso.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + 1);
+    return isoOf(dt);
+  }
+
+  function prevISO(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
     return isoOf(dt);
   }
 
@@ -183,15 +193,14 @@
   function defaultState() {
     return {
       name: NAMES[Math.floor(Math.random() * NAMES.length)],
-      hp: CFG.MAX_HP,
       lastDay: todayISO(),
+      manualCloseDay: null,   // день, закрытый кнопкой «Операций нет» (YYYY-MM-DD)
       streak: 0,
       bestStreak: 0,
       missedTotal: 0,
       dead: false,
       diedAt: null,
       revives: 0,
-      bornAt: todayISO(),
       collapsed: false
     };
   }
@@ -210,7 +219,30 @@
 
   let pet = load();
 
-  /* Досчитываем прошедшие дни: за каждый закрытый день начисляем награду или урон */
+  /* День считается закрытым, если по нему есть операции
+     ИЛИ владелец явно нажал «Операций нет». */
+  function isDayClosed(iso, ops) {
+    if (pet.manualCloseDay === iso) return true;
+    return dayOps(iso, ops).length > 0;
+  }
+
+  /* Закрыть сегодняшний день вручную — кнопка «Операций нет» */
+  function canDeclareEmpty() {
+    return new Date().getHours() >= CFG.NO_OPS_UNLOCK_HOUR;
+  }
+
+  function closeTodayManually() {
+    if (!canDeclareEmpty()) return false;   // рано — день ещё может случиться
+    pet.manualCloseDay = todayISO();
+    if (pet.dead) { pet.dead = false; pet.diedAt = null; pet.revives += 1; }
+    save(pet);
+    refresh(true);
+    return true;
+  }
+
+  /* Подводим итог прошедшим дням.
+     Состояние живёт один день, поэтому HP не переносится: важен только
+     факт «последний прошедший день закрыт или нет». */
   function settleDays(ops) {
     if (!ops) return false;               // данных нет — судить не за что
     const today = todayISO();
@@ -218,28 +250,34 @@
     if (!pet.lastDay || pet.lastDay > today) { pet.lastDay = today; save(pet); return true; }
 
     let cursor = pet.lastDay;
-    let changed = false;
     let guard = 0;
+    let lastClosed = false;
     while (cursor < today && guard++ < 400) {
-      const fed = dayOps(cursor, ops).length > 0;
-      if (fed) {
-        if (!pet.dead) pet.hp = Math.min(CFG.MAX_HP, pet.hp + CFG.HEAL_PER_FED_DAY);
+      if (isDayClosed(cursor, ops)) {
         pet.streak += 1;
         pet.bestStreak = Math.max(pet.bestStreak, pet.streak);
+        lastClosed = true;
       } else {
         pet.streak = 0;
         pet.missedTotal += 1;
-        if (!pet.dead) {
-          pet.hp -= CFG.DAMAGE_PER_MISSED_DAY;
-          if (pet.hp <= 0) { pet.hp = 0; pet.dead = true; pet.diedAt = cursor; }
-        }
+        lastClosed = false;
       }
       cursor = nextISO(cursor);
-      changed = true;
     }
+
+    // жив ровно тогда, когда закрыт последний прошедший день
+    if (lastClosed) {
+      pet.dead = false;
+      pet.diedAt = null;
+    } else {
+      pet.dead = true;
+      pet.diedAt = pet.diedAt || prevISO(today);
+    }
+
     pet.lastDay = today;
-    if (changed) save(pet);
-    return changed;
+    if (pet.manualCloseDay && pet.manualCloseDay < today) pet.manualCloseDay = null;
+    save(pet);
+    return true;
   }
 
   /* ============================
@@ -251,29 +289,36 @@
 
     const today = todayISO();
     const todays = dayOps(today, ops);
-    const fed = todays.length > 0;
+    const hasOps = todays.length > 0;
+    const manual = pet.manualCloseDay === today;
+    const closed = hasOps || manual;
 
-    // покормили мёртвого — оживает
-    if (pet.dead && fed) {
+    // закрыли день — мёртвый оживает на полные силы
+    if (pet.dead && closed) {
       pet.dead = false;
       pet.diedAt = null;
       pet.revives += 1;
-      pet.hp = CFG.REVIVE_HP;
       save(pet);
     }
 
-    // визуальный «голод» в течение дня
+    // HP — чисто функция текущего дня, ничего не копится
     const now = new Date();
     const hour = now.getHours() + now.getMinutes() / 60;
-    let hunger = 0;
-    if (!fed && !pet.dead && hour > CFG.HUNGER_START_HOUR) {
+    let shownHp;
+    if (pet.dead) {
+      shownHp = 0;
+    } else if (closed) {
+      shownHp = CFG.MAX_HP;
+    } else if (hour <= CFG.HUNGER_START_HOUR) {
+      shownHp = CFG.MAX_HP;
+    } else {
       const span = 24 - CFG.HUNGER_START_HOUR;
-      hunger = CFG.HUNGER_MAX * Math.min(1, (hour - CFG.HUNGER_START_HOUR) / span);
+      const spent = Math.min(1, (hour - CFG.HUNGER_START_HOUR) / span);
+      shownHp = Math.max(0, Math.round(CFG.MAX_HP * (1 - spent)));
     }
 
-    const shownHp = pet.dead ? 0 : Math.max(0, Math.round(pet.hp - hunger));
     const msLeft = msUntilMidnight();
-    const panic = !fed && !pet.dead && msLeft < CFG.PANIC_HOURS * 3600 * 1000;
+    const panic = !closed && !pet.dead && msLeft < CFG.PANIC_HOURS * 3600 * 1000;
 
     let mood = "happy";
     if (pet.dead) mood = "dead";
@@ -282,7 +327,8 @@
     else if (shownHp < 80) mood = "ok";
 
     return {
-      ops, fed, todays, hp: pet.hp, shownHp, mood, msLeft, panic,
+      ops, closed, hasOps, manual, todays, shownHp, mood, msLeft, panic,
+      canDeclare: canDeclareEmpty(),
       dataReady: !!ops,
       todayAmount: todays.reduce((a, o) => a + (Number(o.amount) || 0), 0)
     };
@@ -294,11 +340,12 @@
   function drawSprite(canvas, mood, opts) {
     opts = opts || {};
     const scale = opts.scale || CFG.PIXEL_SCALE;
-    const size = 16 * scale;
-    if (canvas.width !== size) { canvas.width = size; canvas.height = size; }
+    const w = 16 * scale;
+    const h = 17 * scale; // +1 ряд запаса под покачивание, иначе срезает лапы
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, size, size);
+    ctx.clearRect(0, 0, w, h);
 
     const grid = SPRITE.map((r) => r.split(""));
     facePatch(mood, opts.blink).forEach(([r, c, ch]) => {
@@ -338,7 +385,7 @@
     dock.setAttribute("aria-label", "Питомец — состояние дня");
     dock.innerHTML = `
       <button class="petDockHide" id="petDockHide" title="Свернуть" aria-label="Свернуть">−</button>
-      <canvas class="petCanvas" id="petCanvas" width="80" height="80" aria-hidden="true"></canvas>
+      <canvas class="petCanvas" id="petCanvas" width="48" height="51" aria-hidden="true"></canvas>
       <div class="petDockInfo">
         <div class="petDockName" id="petDockName"></div>
         <div class="petDockTimer" id="petDockTimer">--:--:--</div>
@@ -351,7 +398,7 @@
     bubble.id = "petBubble";
     bubble.className = "petBubble";
     bubble.setAttribute("aria-label", "Показать питомца");
-    bubble.innerHTML = `<canvas class="petCanvasMini" id="petCanvasMini" width="48" height="48"></canvas>`;
+    bubble.innerHTML = `<canvas class="petCanvasMini" id="petCanvasMini" width="32" height="34"></canvas>`;
     document.body.appendChild(bubble);
 
     el.dock = dock;
@@ -393,12 +440,16 @@
 
   function statusLine(c) {
     if (!c.dataReady) return "Жду данные с сервера…";
-    if (c.mood === "dead") return "Не дождался. Внеси операцию за сегодня — вернётся.";
-    if (c.fed && c.shownHp < 55) return "Накормлен, но ещё слаб. Здоровье вернётся за пару дней подряд.";
-    if (c.fed) return "Сыт и доволен. День закрыт.";
-    if (c.mood === "critical") return "Совсем плохо. Операции за сегодня всё ещё нет.";
+    if (c.mood === "dead") return "Не дождался. Закрой сегодняшний день — вернётся.";
+    if (c.manual && !c.hasOps) return "День отмечен как пустой. Это тоже считается — всё в порядке.";
+    if (c.closed) return "День закрыт. Завтра начнём заново.";
+    if (c.mood === "critical") {
+      return c.canDeclare
+        ? "Совсем плохо. Внеси операцию или отметь день пустым."
+        : "Совсем плохо. День всё ещё не закрыт.";
+    }
     if (c.mood === "sad") return "Грустит и косится на часы.";
-    return "Ждёт, когда ты внесёшь операции за сегодня.";
+    return "Ждёт, когда ты закроешь сегодняшний день.";
   }
 
   function moodWord(m) {
@@ -406,8 +457,8 @@
   }
 
   function modalHtml(c) {
-    const daysToDeath = Math.max(0, Math.ceil(pet.hp / CFG.DAMAGE_PER_MISSED_DAY));
     const hpColor = c.shownHp >= 55 ? "var(--ok)" : c.shownHp >= 25 ? "var(--warn)" : "var(--danger)";
+    const closedBy = c.hasOps ? "операциями" : c.manual ? "вручную" : "";
     return `
       <div class="petModal">
         <div class="petModalTop">
@@ -420,7 +471,7 @@
         </div>
 
         <div class="petHpBar big"><i style="width:${c.shownHp}%;background:${hpColor}"></i></div>
-        <div class="petHpNum">${c.shownHp} / ${CFG.MAX_HP} HP</div>
+        <div class="petHpNum">${c.shownHp} / ${CFG.MAX_HP} HP · состояние только за сегодня</div>
 
         <div class="petStats">
           <div class="petStat">
@@ -429,33 +480,36 @@
           </div>
           <div class="petStat">
             <span class="k">Операций сегодня</span>
-            <b class="${c.fed ? "ok" : "danger"}">${c.todays.length}</b>
+            <b class="${c.hasOps ? "ok" : ""}">${c.todays.length}</b>
           </div>
           <div class="petStat">
-            <span class="k">Дней подряд</span><b>${pet.streak}</b>
+            <span class="k">День закрыт</span>
+            <b class="${c.closed ? "ok" : "danger"}">${c.closed ? "да · " + closedBy : "нет"}</b>
           </div>
           <div class="petStat">
-            <span class="k">Рекорд</span><b>${pet.bestStreak}</b>
-          </div>
-          <div class="petStat">
-            <span class="k">Пропущено дней</span><b>${pet.missedTotal}</b>
-          </div>
-          <div class="petStat">
-            <span class="k">Воскрешений</span><b>${pet.revives}</b>
+            <span class="k">Дней подряд</span><b>${pet.streak}${pet.bestStreak ? ` <span style="color:var(--muted);font-weight:600">/ ${pet.bestStreak}</span>` : ""}</b>
           </div>
         </div>
 
-        <div class="petWarn ${c.mood === "dead" ? "dead" : c.fed ? "ok" : "warn"}">
+        <div class="petWarn ${c.mood === "dead" ? "dead" : c.closed ? "ok" : "warn"}">
           ${c.mood === "dead"
-            ? "Питомец умер. Любая операция за сегодня оживит его с " + CFG.REVIVE_HP + " HP."
-            : c.fed
-              ? "Сегодня всё в порядке. Завтра начнётся заново."
-              : `Если до полуночи не внести ни одной операции — минус ${CFG.DAMAGE_PER_MISSED_DAY} HP. При текущем запасе хватит ещё на ${daysToDeath} ${plural(daysToDeath, "день", "дня", "дней")}.`}
+            ? "Питомец умер. Закрой сегодняшний день — он вернётся на полные " + CFG.MAX_HP + " HP."
+            : c.closed
+              ? "Сегодня всё в порядке. В полночь HP снова станет полным."
+              : c.canDeclare
+                ? "HP тает до полуночи. Если трат сегодня правда не было — нажми «Операций нет», это закроет день честно."
+                : `HP тает до полуночи. Если трат сегодня так и не будет, после ${CFG.NO_OPS_UNLOCK_HOUR}:00 появится кнопка «Операций нет», чтобы закрыть день без операции.`}
         </div>
 
         <div class="petActions">
-          <button class="btn primary" id="petGoAdd">Внести операцию</button>
-          <button class="btn ghost" id="petRename">Переименовать</button>
+          <button class="btn" id="petGoAdd">Внести операцию</button>
+          ${!c.closed && c.canDeclare
+            ? '<button class="btn secondary" id="petNoOps">Операций нет</button>'
+            : ""}
+        </div>
+        <div class="petActions petActionsSub">
+          <button class="btn ghost small" id="petRename">Переименовать</button>
+          ${c.manual && !c.hasOps ? '<button class="btn ghost small" id="petUndoNoOps">Отменить «нет операций»</button>' : ""}
         </div>
       </div>
     `;
@@ -488,6 +542,20 @@
       setTimeout(() => { if (amount) { amount.focus(); amount.scrollIntoView({ behavior: "smooth", block: "center" }); } }, 120);
     });
 
+    const noOps = document.getElementById("petNoOps");
+    if (noOps) noOps.addEventListener("click", () => {
+      closeTodayManually();
+      openPetModal();   // перерисовываем модалку в новом состоянии
+    });
+
+    const undo = document.getElementById("petUndoNoOps");
+    if (undo) undo.addEventListener("click", () => {
+      pet.manualCloseDay = null;
+      save(pet);
+      refresh(true);
+      openPetModal();
+    });
+
     const ren = document.getElementById("petRename");
     if (ren) ren.addEventListener("click", () => {
       const v = prompt("Как его зовут?", pet.name);
@@ -497,7 +565,7 @@
 
   function paintModalSprite(c) {
     const cv = document.getElementById("petModalCanvas");
-    if (cv) drawSprite(cv, c.mood, { scale: 8, bob: 0 });
+    if (cv) drawSprite(cv, c.mood, { scale: 6, bob: 0 });
   }
 
   /* ============================
@@ -505,6 +573,7 @@
    * ============================ */
   let tick = 0;
   let blinkUntil = 0;
+  let lastCanDeclare = null;
 
   function refresh(force) {
     if (!el.dock) return;
@@ -512,8 +581,8 @@
 
     // таймер + hp-бар
     el.name.textContent = pet.name;
-    el.timer.textContent = c.fed ? "день закрыт" : fmtHMS(c.msLeft);
-    el.timer.classList.toggle("ok", c.fed);
+    el.timer.textContent = c.closed ? "день закрыт" : fmtHMS(c.msLeft);
+    el.timer.classList.toggle("ok", c.closed);
     el.timer.classList.toggle("danger", c.panic || c.mood === "dead");
     el.hpFill.style.width = c.shownHp + "%";
     el.hpFill.style.background =
@@ -521,7 +590,7 @@
 
     el.dock.classList.toggle("panic", c.panic || c.mood === "critical");
     el.dock.classList.toggle("dead", c.mood === "dead");
-    el.dock.classList.toggle("fed", c.fed);
+    el.dock.classList.toggle("fed", c.closed);
 
     // моргание
     const now = Date.now();
@@ -529,17 +598,25 @@
     const blink = now < blinkUntil;
 
     // покачивание
-    const bob = c.mood === "dead" ? 0 : (Math.sin(tick / 8) > 0 ? 0 : 0.35);
+    const bob = c.mood === "dead" ? 1 : (Math.sin(tick / 8) > 0 ? 0 : 1);
 
     drawSprite(el.canvas, c.mood, { scale: CFG.PIXEL_SCALE, bob, blink, tear: c.mood === "critical" });
-    if (pet.collapsed) drawSprite(el.canvasMini, c.mood, { scale: 3, bob, blink });
+    if (pet.collapsed) drawSprite(el.canvasMini, c.mood, { scale: 2, bob, blink });
 
     if (modalOpen && document.getElementById("petModalCanvas")) {
+      // кнопка «Операций нет» могла разблокироваться прямо сейчас — пересобираем
+      if (lastCanDeclare !== null && lastCanDeclare !== c.canDeclare) {
+        lastCanDeclare = c.canDeclare;
+        openPetModal();
+        return;
+      }
+      lastCanDeclare = c.canDeclare;
       const t = document.querySelector(".petStat b");
       if (t) t.textContent = fmtHMS(c.msLeft);
       paintModalSprite(c);
     } else if (modalOpen && !document.getElementById("petModalCanvas")) {
       modalOpen = false;
+      lastCanDeclare = null;
     }
 
     if (force) { /* ничего дополнительно */ }
@@ -556,6 +633,8 @@
   /* публичный хук — app.js дёргает после загрузки/изменения данных */
   window.PixelPet = {
     refresh: () => refresh(true),
+    closeToday: closeTodayManually,   // вернёт false, если ещё рано
+    canCloseToday: canDeclareEmpty,
     open: openPetModal,
     reset: () => { pet = defaultState(); save(pet); refresh(true); },
     _state: () => pet
