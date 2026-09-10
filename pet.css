@@ -192,6 +192,9 @@ html.auth-locked .petBubble { display: none !important; }
 
 .petActions { display: flex; gap: 8px; margin-top: 14px; }
 .petActions .btn { flex: 1 1 auto; }
+/* второй ряд — вспомогательные действия, не растягиваем на всю ширину */
+.petActionsSub { margin-top: 8px; justify-content: flex-start; }
+.petActionsSub .btn { flex: 0 0 auto; width: auto; }
 
 @media (max-width: 560px) {
   .petDock { width: 138px; padding: 6px 9px 6px 7px; gap: 7px; }
