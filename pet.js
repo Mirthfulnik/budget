@@ -267,7 +267,8 @@
    *  ЛОКАЛЬНОЕ СОСТОЯНИЕ
    * ============================
    * Здесь лежит только то, чего нет на сервере: дни, закрытые кнопкой
-   * «Операций нет», ручные переименования и свёрнутость попапа.
+   * «Операций нет», дни призыва нового духа, ручные переименования и
+   * свёрнутость попапа.
    * Всё остальное — жив ли дух, как его зовут, сколько дней он прожил —
    * ВЫЧИСЛЯЕТСЯ из операций. Операции синхронизируются, поэтому телефон
    * и компьютер приходят к одному и тому же ответу.
@@ -276,6 +277,7 @@
     return {
       manualDays: [],   // ["YYYY-MM-DD"] — дни, закрытые вручную
       names: {},        // { "дата рождения духа": "имя" } — ручные переименования
+      summons: {},      // { "YYYY-MM-DD": час призыва } — кнопка «Призвать духа»
       collapsed: false
     };
   }
@@ -287,6 +289,7 @@
       const s = Object.assign(defaultState(), JSON.parse(raw));
       if (!Array.isArray(s.manualDays)) s.manualDays = [];
       if (!s.names || typeof s.names !== "object") s.names = {};
+      if (!s.summons || typeof s.summons !== "object") s.summons = {};
       return s;
     } catch (e) { return defaultState(); }
   }
@@ -311,6 +314,28 @@
     return true;
   }
 
+  /* Чистим старые записи о призывах — за пределами окна наблюдения они
+     всё равно ни на что не влияют, а localStorage пухнет. */
+  function pruneSummons_() {
+    const edge = shiftISO(todayISO(), -CFG.TRACK_WINDOW_DAYS * 2);
+    Object.keys(pet.summons).forEach((d) => { if (d < edge) delete pet.summons[d]; });
+  }
+
+  /* Призвать нового духа — доступно, только пока текущий мёртв.
+     Призыв НЕ закрывает день: новый дух приходит с полным HP, которое
+     тает от момента призыва до полуночи. Не закроешь день — умрёт и он. */
+  function summonSpirit() {
+    const a = analyze(getOps());
+    if (!a.isDead) return false;           // живого духа подменять нечем
+    const now = new Date();
+    pet.summons[todayISO()] = now.getHours() + now.getMinutes() / 60;
+    pruneSummons_();
+    save(pet);
+    cache = { key: "", value: null };
+    refresh(true);
+    return true;
+  }
+
   /* ============================
    *  ВЫВОД СОСТОЯНИЯ ИЗ ОПЕРАЦИЙ
    * ============================ */
@@ -318,7 +343,10 @@
 
   function analyze(ops) {
     const today = todayISO();
-    const key = today + "|" + (ops ? ops.length : "x") + "|" + pet.manualDays.join(",");
+    const summonHour = pet.summons ? pet.summons[today] : undefined;
+    const summonedToday = summonHour != null;
+    const key = today + "|" + (ops ? ops.length : "x") + "|" + pet.manualDays.join(",") +
+                "|s" + (summonedToday ? summonHour : "-");
     if (cache.key === key) return cache.value;
 
     const withOps = new Set();
@@ -353,7 +381,9 @@
     const yesterday = prevISO(today);
     const todayClosed = closed(today);
     const diedLastNight = yesterday >= start && !closed(yesterday);
-    const isDead = diedLastNight && !todayClosed;
+    // Призыв не закрывает день, но выводит духа из состояния «мёртв»:
+    // вместо вчерашнего покойника показываем нового, рождённого сегодня.
+    const isDead = diedLastNight && !todayClosed && !summonedToday;
 
     // дата рождения текущего духа
     let birth;
@@ -366,6 +396,7 @@
     } else {
       birth = start;
     }
+    if (summonedToday) birth = today;   // призванный дух родился сегодня
     if (birth > today) birth = today;
 
     // серия закрытых дней подряд, заканчивая вчерашним, плюс сегодня
@@ -384,6 +415,9 @@
       hasOpsToday: withOps.has(today),
       manualToday: manual.has(today),
       deaths: deaths.length, streak, lifeDays,
+      summoned: summonedToday,
+      summonHour: summonedToday ? summonHour : null,
+      canSummon: diedLastNight && !todayClosed && !summonedToday,
       diedAt: isDead ? yesterday : null
     };
     cache = { key, value };
@@ -399,14 +433,19 @@
 
     const now = new Date();
     const hour = now.getHours() + now.getMinutes() / 60;
+    // Дух, призванный днём, не наследует голод погибшего: отсчёт HP
+    // начинается с момента призыва, но дожить до полуночи всё равно нужно.
+    const hungerStart = (a.summonHour != null)
+      ? Math.max(CFG.HUNGER_START_HOUR, a.summonHour)
+      : CFG.HUNGER_START_HOUR;
     let shownHp;
     if (a.isDead) {
       shownHp = 0;
-    } else if (a.todayClosed || hour <= CFG.HUNGER_START_HOUR) {
+    } else if (a.todayClosed || hour <= hungerStart) {
       shownHp = CFG.MAX_HP;
     } else {
-      const span = 24 - CFG.HUNGER_START_HOUR;
-      const spent = Math.min(1, (hour - CFG.HUNGER_START_HOUR) / span);
+      const span = Math.max(0.5, 24 - hungerStart);
+      const spent = Math.min(1, (hour - hungerStart) / span);
       shownHp = Math.max(0, Math.round(CFG.MAX_HP * (1 - spent)));
     }
 
@@ -424,6 +463,7 @@
       ops, todays, shownHp, mood, msLeft, panic,
       closed: a.todayClosed, hasOps: a.hasOpsToday, manual: a.manualToday,
       dead: a.isDead, spirit: a.spirit, deaths: a.deaths,
+      summoned: a.summoned, canSummon: a.canSummon,
       streak: a.streak, lifeDays: a.lifeDays, diedAt: a.diedAt,
       canDeclare: canDeclareEmpty(),
       dataReady: !!ops
@@ -536,7 +576,8 @@
 
   function statusLine(c) {
     if (!c.dataReady) return "Жду данные с сервера…";
-    if (c.dead) return "Дух ушёл насовсем. Закрой сегодняшний день — придёт новый.";
+    if (c.dead) return "Дух ушёл насовсем. Призови нового или закрой сегодняшний день.";
+    if (c.summoned && !c.closed) return "Новый дух пришёл. Осталось закрыть сегодняшний день.";
     if (c.manual && !c.hasOps) return "День отмечен как пустой. Это тоже считается — всё в порядке.";
     if (c.closed) return "День закрыт. Завтра начнём заново.";
     if (c.mood === "critical") {
@@ -598,8 +639,10 @@
 
         <div class="petWarn ${c.dead ? "dead" : c.closed ? "ok" : "warn"}">
           ${c.dead
-            ? `${esc(c.spirit.name)} не пережил${fem(c.spirit.name)} ${fmtDate(c.diedAt)} и ушёл${fem(c.spirit.name)} навсегда — воскресить нельзя. Закрой сегодняшний день, и придёт новый дух, со своим именем и цветом листа.`
-            : c.closed
+            ? `${esc(c.spirit.name)} не пережил${fem(c.spirit.name)} ${fmtDate(c.diedAt)} и ушёл${fem(c.spirit.name)} навсегда — воскресить нельзя. Но можно призвать нового духа: он придёт со своим именем и цветом листа, с полным HP. Сегодняшний день это не закроет — его всё равно нужно закрыть до полуночи.`
+            : c.summoned && !c.closed
+              ? `${esc(c.spirit.name)} призван${fem(c.spirit.name)} сегодня. HP тает до полуночи — закрой день, иначе новый дух уйдёт следом за прежним.`
+              : c.closed
               ? "Сегодня всё в порядке. В полночь HP снова станет полным."
               : c.canDeclare
                 ? "HP тает до полуночи. Если трат сегодня правда не было — нажми «Операций нет», это закроет день честно."
@@ -607,7 +650,8 @@
         </div>
 
         <div class="petActions">
-          <button class="btn" id="petGoAdd">Внести операцию</button>
+          ${c.dead ? '<button class="btn" id="petSummon">Призвать духа</button>' : ""}
+          <button class="btn ${c.dead ? "secondary" : ""}" id="petGoAdd">Внести операцию</button>
           ${!c.closed && c.canDeclare
             ? '<button class="btn secondary" id="petNoOps">Операций нет</button>'
             : ""}
@@ -645,6 +689,16 @@
       const toggle = document.getElementById("btnToggleOpForm");
       if (toggle && !document.querySelector(".opFormWrap.open")) toggle.click();
       setTimeout(() => { if (amount) { amount.focus(); amount.scrollIntoView({ behavior: "smooth", block: "center" }); } }, 120);
+    });
+
+    const summon = document.getElementById("petSummon");
+    if (summon) summon.addEventListener("click", () => {
+      summon.disabled = true;               // призыв — один клик, без дублей
+      if (summonSpirit()) {
+        openPetModal();                     // перерисовываем модалку с новым духом
+      } else {
+        summon.disabled = false;
+      }
     });
 
     const noOps = document.getElementById("petNoOps");
@@ -745,6 +799,8 @@
   window.PixelPet = {
     refresh: () => refresh(true),
     closeToday: closeTodayManually,   // вернёт false, если ещё рано
+    summon: summonSpirit,             // вернёт false, если текущий дух жив
+    canSummon: () => !!analyze(getOps()).canSummon,
     canCloseToday: canDeclareEmpty,
     open: openPetModal,
     reset: () => { pet = defaultState(); cache = { key: "", value: null }; save(pet); refresh(true); },
