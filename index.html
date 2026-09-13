@@ -134,12 +134,8 @@
             </div>
             <div class="field">
               <label>Валюта</label>
-              <select id="op-currency">
-                <option value="RUB">RUB · ₽</option>
-                <option value="USD">USD · $</option>
-                <option value="EUR">EUR · €</option>
-                <option value="CNY">CNY · ¥</option>
-              </select>
+              <!-- заполняется из справочника валют (fillCurrencySelect) -->
+              <select id="op-currency"></select>
             </div>
           </div>
 
@@ -389,6 +385,14 @@
             <button class="btn inline small" id="btn-new-acc">➕</button>
           </div>
           <div id="accounts-list" class="list"></div>
+        </div>
+
+        <div class="card">
+          <div class="cardTitle">
+            <h2>Валюты</h2>
+            <button class="btn inline small" id="btn-new-currency">➕</button>
+          </div>
+          <div id="currencies-list" class="list"></div>
         </div>
 
 
