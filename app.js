@@ -278,6 +278,7 @@ const state = {
   goals: [],          // {id, name, target, saved, deadline, accountId}
   stages: [],         // {id, name, amount} amount: monthly income threshold
   quotes: [],         // {id, text, author}
+  currencies: [],     // {code, symbol, name} — справочник валют (настройки)
   balanceByCurrency: null, // optional from server
   period: { kind:"week", from:null, to:null },
   // Фильтры операций (единственный источник истины — не DOM)
@@ -324,6 +325,166 @@ const state = {
 
 /**
  * ============================
+ *  CURRENCIES — справочник валют
+ * ============================
+ * Раньше список валют был зашит в HTML (<option>) и в нескольких массивах
+ * внутри app.js. Теперь это один справочник, которым управляют из настроек.
+ *
+ * Хранение: localStorage (ключ CURRENCIES_LS_KEY).
+ * Если бэкенд когда-нибудь начнёт отдавать bootstrap.currencies — данные
+ * с сервера имеют приоритет (см. applyBootstrapData), локальный список
+ * остаётся резервом и работает офлайн.
+ *
+ * Инвариант: валюта, которая реально используется хотя бы одним счётом или
+ * операцией, не может пропасть из справочника — ensureUsedCurrencies_()
+ * добавит её обратно, даже если её удалили или бэкенд про неё не знает.
+ */
+const CURRENCIES_LS_KEY = "finance2026_currencies_v1";
+
+const DEFAULT_CURRENCIES = [
+  { code:"RUB", symbol:"₽", name:"Российский рубль" },
+  { code:"USD", symbol:"$", name:"Доллар США" },
+  { code:"EUR", symbol:"€", name:"Евро" },
+  { code:"CNY", symbol:"¥", name:"Китайский юань" },
+];
+
+// Базовая валюта: в расчётах курсов и в плашке «Можно потратить» опорной
+// считается RUB. Если рубль удалён из справочника — берём первую валюту.
+function baseCurrency(){
+  const codes = currencyCodes();
+  return codes.includes("RUB") ? "RUB" : (codes[0] || "RUB");
+}
+
+function normalizeCurrencyCode_(v){
+  return String(v ?? "").trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5);
+}
+
+function sanitizeCurrencies_(arr){
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(arr) ? arr : []).forEach(raw=>{
+    const src  = (typeof raw === "string") ? { code: raw } : (raw || {});
+    const code = normalizeCurrencyCode_(src.code);
+    if (!code || seen.has(code)) return;
+    seen.add(code);
+    out.push({
+      code,
+      symbol: String(src.symbol ?? "").trim().slice(0, 4) || code,
+      name:   String(src.name   ?? "").trim().slice(0, 40) || code,
+    });
+  });
+  return out;
+}
+
+function loadCurrenciesLocal_(){
+  try{
+    const raw = localStorage.getItem(CURRENCIES_LS_KEY);
+    if (raw){
+      const parsed = sanitizeCurrencies_(JSON.parse(raw));
+      if (parsed.length) return parsed;
+    }
+  }catch(e){ /* ignore */ }
+  return sanitizeCurrencies_(DEFAULT_CURRENCIES);
+}
+
+function saveCurrenciesLocal_(list){
+  try{
+    localStorage.setItem(CURRENCIES_LS_KEY, JSON.stringify(sanitizeCurrencies_(list)));
+  }catch(e){ /* ignore */ }
+}
+
+/** Коды валют, которые уже используются в данных (их нельзя терять). */
+function currencyCodesInData_(){
+  const set = new Set();
+  (state.accounts   || []).forEach(a => set.add(normalizeCurrencyCode_(a?.currency || "RUB")));
+  (state.operations || []).forEach(o => {
+    const c = normalizeCurrencyCode_(o?.currency || "");
+    if (c) set.add(c);
+  });
+  set.delete("");
+  return [...set];
+}
+
+/** Дописывает в справочник валюты, встречающиеся в счетах/операциях. */
+function ensureUsedCurrencies_(){
+  const have = new Set(state.currencies.map(c=>c.code));
+  let changed = false;
+  currencyCodesInData_().forEach(code=>{
+    if (have.has(code)) return;
+    state.currencies.push({ code, symbol: code, name: code });
+    have.add(code);
+    changed = true;
+  });
+  if (!state.currencies.length){
+    state.currencies = sanitizeCurrencies_(DEFAULT_CURRENCIES);
+    changed = true;
+  }
+  return changed;
+}
+
+function currencyList(){
+  return (state.currencies && state.currencies.length)
+    ? state.currencies
+    : sanitizeCurrencies_(DEFAULT_CURRENCIES);
+}
+
+function currencyCodes(){ return currencyList().map(c=>c.code); }
+
+function currencyByCode(code){
+  const c = normalizeCurrencyCode_(code);
+  return currencyList().find(x=>x.code===c) || null;
+}
+
+function currencySymbol(code){
+  const c = currencyByCode(code);
+  return (c && c.symbol) ? c.symbol : (normalizeCurrencyCode_(code) || "");
+}
+
+function currencyLabel(code){
+  const c = currencyByCode(code);
+  if (!c) return normalizeCurrencyCode_(code) || "";
+  return c.symbol && c.symbol !== c.code ? `${c.code} · ${c.symbol}` : c.code;
+}
+
+/** Сортирует произвольные коды в порядке справочника (неизвестные — в конец). */
+function sortCurrencyCodes_(codes){
+  const order = currencyCodes();
+  return [...new Set(codes)].sort((a,b)=>{
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || String(a).localeCompare(String(b));
+  });
+}
+
+function currencyOptionsHTML(selected){
+  const sel = normalizeCurrencyCode_(selected);
+  return currencyList()
+    .map(c=>`<option value="${esc(c.code)}" ${c.code===sel?"selected":""}>${esc(currencyLabel(c.code))}</option>`)
+    .join("");
+}
+
+/**
+ * Перерисовывает <select> валют, сохраняя выбранное значение.
+ * Если выбранной валюты в справочнике больше нет — она добавляется как
+ * disabled-опция, чтобы форма не «молча» подменила валюту операции.
+ */
+function fillCurrencySelect(sel, preferred){
+  if (!sel) return;
+  const want = normalizeCurrencyCode_(preferred || sel.value);
+  let html = currencyOptionsHTML(want);
+  if (want && !currencyByCode(want)){
+    html += `<option value="${esc(want)}" selected disabled>${esc(want)} · нет в справочнике</option>`;
+  }
+  sel.innerHTML = html;
+  if (want) sel.value = want;
+  if (!sel.value) sel.value = baseCurrency();
+}
+
+// Справочник доступен сразу, ещё до первого bootstrap — форма не должна
+// оказаться с пустым списком валют, пока идёт запрос к сети.
+state.currencies = loadCurrenciesLocal_();
+
+/**
+ * ============================
  *  UTIL
  * ============================
  */
@@ -335,7 +496,8 @@ const ruMoney = (n, cur='RUB') => {
   try{
     return new Intl.NumberFormat('ru-RU', { style:'currency', currency: cur, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
   }catch(e){
-    const sym = cur==='USD'?'$':cur==='EUR'?'€':cur==='CNY'?'¥':'₽';
+    // Intl не знает нестандартный код — берём символ из справочника валют
+    const sym = currencySymbol(cur) || cur;
     return v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + sym;
   }
 };
@@ -853,6 +1015,10 @@ function applyBootstrapData(d, { silent = false } = {}) {
   state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
   state.accounts      = Array.isArray(d.accounts)      ? d.accounts      : defaultAccounts();
   state.fxRates       = Array.isArray(d.fxRates)       ? d.fxRates       : [];
+
+  // Справочник валют: сервер (если научится отдавать) → localStorage → дефолт
+  const fromServer = sanitizeCurrencies_(d.currencies);
+  state.currencies = fromServer.length ? fromServer : loadCurrenciesLocal_();
   state.accounts = state.accounts.map(a => ({
     ...a,
     currency: a.currency || "RUB",
@@ -1030,6 +1196,9 @@ function normalizeState(){
     }
   });
 
+  // Валюты, реально встречающиеся в счетах и операциях, обязаны быть в справочнике
+  if (ensureUsedCurrencies_()) saveCurrenciesLocal_(state.currencies);
+
   state.goals.forEach((g,i)=>{ if(!g.id) g.id = "g_"+i; });
   state.stages.forEach((s,i)=>{ if(!s.id) s.id = "st_"+i; });
   state.quotes.forEach((q,i)=>{ if(!q.id) q.id = "q_"+i; });
@@ -1153,6 +1322,9 @@ function renderSelects(){
     catSel.value = prefs.categoryId;
   }
   
+  // валюты из справочника (список может меняться в настройках)
+  fillCurrencySelect($("#op-currency"), $("#op-currency")?.value || prefs?.currency);
+
   // accounts
   const accSel = $("#op-account");
   accSel.innerHTML = state.accounts.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.currency||'RUB')}</option>`).join("");
@@ -1268,11 +1440,13 @@ function renderCanSpend(){
   const pill = document.getElementById("pill-can-spend");
   if (!el) return;
   const month = yyyymm(new Date());
+  const base = baseCurrency();
   let bal = state.balanceByCurrency;
   if (!bal){
-    const byCur = {RUB:0, USD:0, EUR:0, CNY:0};
+    const byCur = {};
+    currencyCodes().forEach(c=>{ byCur[c] = 0; });
     for (const a of state.accounts){
-      const cur = (a && a.currency) ? a.currency : "RUB";
+      const cur = (a && a.currency) ? a.currency : base;
       byCur[cur] = (byCur[cur]||0) + Number(a.balance||0);
     }
     const monthOps = getMonthOps(month).filter(o=>o.type==="expense");
@@ -1282,17 +1456,18 @@ function renderCanSpend(){
     }
     bal = byCur;
   }
-  const order = ["RUB","USD","EUR","CNY"];
-  const symbols = {RUB:"RUB", USD:"USD", EUR:"EUR", CNY:"CNY"};
+  // Показываем все валюты справочника + всё, что пришло с сервера сверх него
+  const order = sortCurrencyCodes_([...currencyCodes(), ...Object.keys(bal || {})]);
   const rows = order.map(cur=>{
     const v = Math.round(Number(bal[cur]||0));
     const sign = v<0 ? "-" : "";
-    return `<div class="csItem"><div class="csCur">${symbols[cur]||cur}</div><div class="csVal">${sign}${ruMoney(Math.abs(v), cur)}</div></div>`;
+    return `<div class="csItem"><div class="csCur">${esc(cur)}</div><div class="csVal">${sign}${ruMoney(Math.abs(v), cur)}</div></div>`;
   }).join("");
-  el.innerHTML = rows;
+  el.innerHTML = rows || `<div class="muted">Валюты не заданы. Добавь их в настройках.</div>`;
   if (pill){
-    const rub = Math.round(Number(bal.RUB||0));
-    pill.textContent = rub>=0 ? ("RUB " + rub.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : ("RUB -" + Math.abs(rub).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    const v = Math.round(Number(bal[base]||0));
+    const num = Math.abs(v).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    pill.textContent = `${base} ${v<0 ? "-" : ""}${num}`;
   }
 }
 
@@ -2881,7 +3056,7 @@ function renderCurrencyStructure(){
 
   const groups = {};
   for (const a of state.accounts){
-    const cur = a.currency || "RUB";
+    const cur = a.currency || baseCurrency();
     (groups[cur] ||= []).push({
       id: a.id,
       name: a.name || "Счёт",
@@ -2889,8 +3064,7 @@ function renderCurrencyStructure(){
     });
   }
 
-  const order = ["RUB","USD","EUR","CNY"];
-  const curs = Object.keys(groups).sort((a,b)=> (order.indexOf(a) - order.indexOf(b)));
+  const curs = sortCurrencyCodes_(Object.keys(groups));
 
   /**
    * П7: вычисляет inline-стили border + background для .item счёта
@@ -3282,6 +3456,35 @@ function renderSettings(){
   if (accEl) accEl.innerHTML = accHint;
   ensureToggle("accounts-list");
 
+  // currencies list
+  const curEl = $("#currencies-list");
+  if (curEl){
+    const base = baseCurrency();
+    const usage = {};
+    currencyCodesInData_().forEach(c=>{ usage[c] = true; });
+    curEl.innerHTML = currencyList().length ? currencyList().map(c=>{
+      const accCount = (state.accounts||[]).filter(a=>String(a.currency||base)===c.code).length;
+      const opCount  = (state.operations||[]).filter(o=>String(opCurrency(o))===c.code).length;
+      const usedNote = (accCount || opCount)
+        ? `Счетов: ${accCount} · Операций: ${opCount}`
+        : `Не используется`;
+      const baseTag = c.code===base ? ` <span class="tag">базовая</span>` : "";
+      return `
+        <div class="item">
+          <div class="left">
+            <div class="t">${esc(c.code)} <span class="tag">${esc(c.symbol)}</span>${baseTag}</div>
+            <div class="d">${esc(c.name)} · ${usedNote}</div>
+          </div>
+          <div class="right">
+            <button class="icon-btn edit" aria-label="Редактировать" onclick="openCurrencyEditor('${esc(c.code)}')">⚙️</button>
+            <button class="icon-btn danger" aria-label="Удалить" onclick="deleteCurrencyConfirm('${esc(c.code)}')">✕</button>
+          </div>
+        </div>
+      `;
+    }).join("") : `<div class="muted">Валют нет. Добавь хотя бы одну.</div>`;
+    ensureToggle("currencies-list");
+  }
+
 
   // limits settings list for current month
   const month = yyyymm(new Date());
@@ -3347,6 +3550,7 @@ function renderSettings(){
 
 $("#btn-new-cat").addEventListener("click", ()=>openCategoryEditor(null));
 $("#btn-new-acc").addEventListener("click", ()=>openAccountEditor(null));
+$("#btn-new-currency")?.addEventListener("click", ()=>openCurrencyEditor(null));
 $("#btn-new-limit").addEventListener("click", ()=>openLimitEditor({id:null, categoryId:"", month: yyyymm(new Date()), amount:""}, "Новый лимит"));
 $("#btn-new-stage").addEventListener("click", ()=>openStageEditor(null));
 $("#btn-new-quote").addEventListener("click", ()=>openQuoteEditor(null));
@@ -3491,6 +3695,112 @@ function deleteSubcategoryConfirm(id){
   }, {once:true});
 }
 
+/**
+ * ============================
+ *  CURRENCY EDITOR (настройки)
+ * ============================
+ */
+
+/** Сохраняет справочник и обновляет весь интерфейс (селекты, суммы, структуру). */
+function persistCurrencies_(){
+  state.currencies = sanitizeCurrencies_(state.currencies);
+  ensureUsedCurrencies_();
+  saveCurrenciesLocal_(state.currencies);
+  renderAll();
+  renderSettings();
+}
+
+function openCurrencyEditor(code){
+  const cur = code ? currencyByCode(code) : null;
+  const html = `
+    <div class="field">
+      <label>Код (ISO, латиницей)</label>
+      <input id="cur-code" value="${escAttr(cur?.code||"")}" placeholder="Например: GBP, AED, KZT"
+             maxlength="5" autocapitalize="characters" ${cur ? "readonly" : ""} />
+      ${cur ? `<div class="muted" style="margin-top:6px">Код менять нельзя — он уже записан в счетах и операциях.</div>` : ""}
+    </div>
+    <div class="field">
+      <label>Символ</label>
+      <input id="cur-symbol" value="${escAttr(cur?.symbol||"")}" placeholder="Например: £, ₸, د.إ" maxlength="4" />
+    </div>
+    <div class="field">
+      <label>Название</label>
+      <input id="cur-name" value="${escAttr(cur?.name||"")}" placeholder="Например: Фунт стерлингов" />
+    </div>
+    <div class="row">
+      <button class="btn" id="cur-save">Сохранить</button>
+      <button class="btn secondary" id="cur-cancel">Отмена</button>
+    </div>
+  `;
+  openModal(cur ? `Валюта ${cur.code}` : "Новая валюта", html);
+
+  $("#cur-cancel").addEventListener("click", closeModal, {once:true});
+  $("#cur-save").addEventListener("click", ()=>{
+    const codeVal = normalizeCurrencyCode_(cur ? cur.code : $("#cur-code").value);
+    if (!codeVal){ toast("Укажи код валюты латиницей", "Например: GBP", "warn"); return; }
+    if (!cur && currencyByCode(codeVal)){ toast("Такая валюта уже есть", codeVal, "warn"); return; }
+
+    const next = {
+      code: codeVal,
+      symbol: String($("#cur-symbol").value||"").trim().slice(0,4) || codeVal,
+      name:   String($("#cur-name").value||"").trim().slice(0,40) || codeVal,
+    };
+
+    const idx = state.currencies.findIndex(c=>c.code===codeVal);
+    if (idx >= 0) state.currencies[idx] = next; else state.currencies.push(next);
+
+    persistCurrencies_();
+    closeModal();
+    toast(cur ? "Валюта обновлена" : "Валюта добавлена", codeVal, "ok");
+  }, {once:true});
+}
+
+function deleteCurrencyConfirm(code){
+  const cur = currencyByCode(code);
+  if (!cur){ toast("Валюта не найдена"); return; }
+
+  // Нельзя удалить валюту, на которой висят счета или операции —
+  // иначе суммы останутся с «висячим» кодом без символа и названия.
+  const accCount = (state.accounts||[]).filter(a=>String(a.currency||baseCurrency())===cur.code).length;
+  const opCount  = (state.operations||[]).filter(o=>String(opCurrency(o))===cur.code).length;
+  if (accCount || opCount){
+    openModal(`Нельзя удалить ${cur.code}`, `
+      <div class="muted" style="line-height:1.45">
+        Валюта используется: счетов — <b>${accCount}</b>, операций — <b>${opCount}</b>.<br/>
+        Сначала переведи их на другую валюту, потом удаляй.
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn secondary" id="cur-del-close">Понятно</button>
+      </div>
+    `);
+    $("#cur-del-close").addEventListener("click", closeModal, {once:true});
+    return;
+  }
+
+  if (currencyList().length <= 1){
+    toast("Нельзя удалить последнюю валюту", "Сначала добавь другую", "warn");
+    return;
+  }
+
+  openModal("Удалить валюту?", `
+    <div class="muted" style="line-height:1.45">
+      ${esc(cur.code)} · ${esc(cur.name)} исчезнет из всех списков выбора.
+      Данные операций не пострадают — валюта нигде не используется.
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn danger" id="cur-del-yes">Удалить</button>
+      <button class="btn secondary" id="cur-del-no">Отмена</button>
+    </div>
+  `);
+  $("#cur-del-no").addEventListener("click", closeModal, {once:true});
+  $("#cur-del-yes").addEventListener("click", ()=>{
+    state.currencies = state.currencies.filter(c=>c.code!==cur.code);
+    persistCurrencies_();
+    closeModal();
+    toast("Валюта удалена", cur.code, "ok");
+  }, {once:true});
+}
+
 function openAccountEditor(id){
   const a = id ? state.accounts.find(x=>String(x.id)===String(id)) : null;
   const html = `
@@ -3510,12 +3820,7 @@ function openAccountEditor(id){
     </div>
     <div class="field">
       <label>Валюта счёта</label>
-      <select id="a-currency">
-        <option value="RUB">RUB · ₽</option>
-        <option value="USD">USD · $</option>
-        <option value="EUR">EUR · €</option>
-        <option value="CNY">CNY · ¥</option>
-      </select>
+      <select id="a-currency"></select>
     </div>
     <div class="row">
       <button class="btn" id="a-save">Сохранить</button>
@@ -3524,14 +3829,13 @@ function openAccountEditor(id){
     </div>
   `;
   openModal(a ? "Редактировать счёт" : "Новый счёт", html);
-  const curSel = $("#a-currency");
-  if (curSel) curSel.value = (a?.currency || 'RUB');
+  fillCurrencySelect($("#a-currency"), a?.currency || baseCurrency());
 
   $("#a-cancel").addEventListener("click", closeModal, {once:true});
   $("#a-save").addEventListener("click", async ()=>{
     const name = $("#a-name").value.trim();
     const kind = $("#a-kind").value || "";
-    const currency = $("#a-currency")?.value || 'RUB';
+    const currency = $("#a-currency")?.value || baseCurrency();
     if (!name){ toast("Укажи название счёта"); return; }
     try{
       const res = await apiPost("upsertAccount", { id: a?.id || "", name, kind, currency });
