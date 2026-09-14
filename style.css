@@ -1145,3 +1145,29 @@ html.auth-locked, body.auth-locked{
   background: rgba(255,255,255,.09);
   color: var(--text);
 }
+
+/* === Выбор произвольного периода (Дашборд) ======================
+   Раньше блок использовал .row. На мобильном .row становится
+   колонкой, а .row > * имеет flex:1 1 100% — во flex-колонке
+   basis считается от ВЫСОТЫ, и поля растягивались на всю карточку.
+   Поэтому здесь своя сетка, не зависящая от правил .row.
+*/
+.rangeRow{
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 10px;
+}
+.rangeRow .field{ margin-bottom: 0; min-width: 0; }
+.rangeRow input[type="date"]{ width: 100%; min-width: 0; max-width: 100%; }
+.rangeRow .rangeApply .btn{ width: 100%; }
+
+@media (max-width: 560px){
+  .rangeRow{
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  /* Кнопка уходит на свою строку во всю ширину */
+  .rangeRow .rangeApply{ grid-column: 1 / -1; }
+}
