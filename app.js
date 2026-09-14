@@ -1082,7 +1082,15 @@ async function syncAll(reason = "auto") {
     // Сохраняем в localStorage-кеш
     cacheBootstrapSave(d);
 
-    applyBootstrapData(d);
+    // Отрисовку ловим отдельно: иначе ошибка рендера попадает в общий catch
+    // и выглядит как обрыв связи, хотя сервер ответил нормально.
+    try {
+      applyBootstrapData(d);
+    } catch (renderErr) {
+      console.error("applyBootstrapData failed:", renderErr);
+      toast("Ошибка отображения данных", String(renderErr && renderErr.message || renderErr), "error", 0);
+      return;
+    }
 
     if (!isInit) {
       toast("Синхронизация", "Готово ✅", "ok", 1800);
@@ -1100,7 +1108,12 @@ async function syncAll(reason = "auto") {
           const j2 = await apiGet({ action: "bootstrap" });
           const d2 = j2.data || {};
           cacheBootstrapSave(d2);
-          applyBootstrapData(d2);
+          try { applyBootstrapData(d2); }
+          catch (renderErr) {
+            console.error("applyBootstrapData failed:", renderErr);
+            toast("Ошибка отображения данных", String(renderErr && renderErr.message || renderErr), "error", 0);
+            return;
+          }
           toast("Данные обновлены", "✅", "ok", 1200);
         } catch {
           // Второй раз тоже не получилось — теперь сообщаем пользователю
@@ -1114,7 +1127,12 @@ async function syncAll(reason = "auto") {
           const j2 = await apiGet({ action: "bootstrap" });
           const d2 = j2.data || {};
           cacheBootstrapSave(d2);
-          applyBootstrapData(d2);
+          try { applyBootstrapData(d2); }
+          catch (renderErr) {
+            console.error("applyBootstrapData failed:", renderErr);
+            toast("Ошибка отображения данных", String(renderErr && renderErr.message || renderErr), "error", 0);
+            return;
+          }
           toast("Данные загружены", "✅", "ok", 1200);
         } catch {
           toast("Ошибка синхронизации", msg, "error", 0);
