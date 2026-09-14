@@ -2093,7 +2093,7 @@ function setPeriod(kind){
     if (kind==="month"){ state.period.from = startOfMonth(now); state.period.to = endOfMonth(now); }
     if (kind==="year"){ state.period.from = startOfYear(now); state.period.to = endOfYear(now); }
   }
-  $("#custom-range").style.display = (kind==="custom") ? "flex" : "none";
+  $("#custom-range").style.display = (kind==="custom") ? "grid" : "none";
   renderDashboard();
 }
 
