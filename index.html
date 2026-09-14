@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>My Money</title>
-  <link rel="stylesheet" href="./style.css?v=7" />
-  <link rel="stylesheet" href="./pet.css?v=7" />
+  <link rel="stylesheet" href="./style.css?v=8" />
+  <link rel="stylesheet" href="./pet.css?v=8" />
 
   <!-- Favicons -->
   <link rel="icon" href="favicon.ico" sizes="any">
@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Android / PWA -->
-  <link rel="manifest" href="site.webmanifest?v=7">
+  <link rel="manifest" href="site.webmanifest?v=8">
   <meta name="theme-color" content="#0b0f17">
 
   </head>
@@ -234,7 +234,7 @@
           <div class="tab" data-period="custom">Период</div>
         </div>
 
-        <div id="custom-range" style="display:none; margin-top:10px" class="row">
+        <div id="custom-range" class="rangeRow" style="display:none">
           <div class="field">
             <label>С</label>
             <input id="range-from" type="date" />
@@ -243,7 +243,7 @@
             <label>По</label>
             <input id="range-to" type="date" />
           </div>
-          <div class="field" style="align-self:flex-end">
+          <div class="field rangeApply">
             <button class="btn secondary" id="btn-apply-range">Применить</button>
           </div>
         </div>
@@ -511,9 +511,9 @@
 
 
 
-  <script src="./core.js?v=7"></script>
-  <script type="module" src="./app.js?v=7"></script>
-  <script src="./pet.js?v=7" defer></script>
+  <script src="./core.js?v=8"></script>
+  <script type="module" src="./app.js?v=8"></script>
+  <script src="./pet.js?v=8" defer></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
 
   <script>
