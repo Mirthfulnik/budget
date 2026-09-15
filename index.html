@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>My Money</title>
-  <link rel="stylesheet" href="./style.css?v=9" />
-  <link rel="stylesheet" href="./pet.css?v=9" />
+  <link rel="stylesheet" href="./style.css?v=10" />
+  <link rel="stylesheet" href="./pet.css?v=10" />
 
   <!-- Favicons -->
   <link rel="icon" href="favicon.ico" sizes="any">
@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Android / PWA -->
-  <link rel="manifest" href="site.webmanifest?v=9">
+  <link rel="manifest" href="site.webmanifest?v=10">
   <meta name="theme-color" content="#0b0f17">
 
   </head>
@@ -247,6 +247,9 @@
             <button class="btn secondary" id="btn-apply-range">Применить</button>
           </div>
         </div>
+
+        <!-- чипы валют: аналитика считается по одной валюте за раз -->
+        <div class="tabs curTabs" id="dash-cur-tabs" style="display:none"></div>
 
         <div class="hr"></div>
 
@@ -511,9 +514,9 @@
 
 
 
-  <script src="./core.js?v=9"></script>
-  <script type="module" src="./app.js?v=9"></script>
-  <script src="./pet.js?v=9" defer></script>
+  <script src="./core.js?v=10"></script>
+  <script type="module" src="./app.js?v=10"></script>
+  <script src="./pet.js?v=10" defer></script>
   <div id="chartTip" class="chartTip" style="display:none"></div>
 
   <script>
