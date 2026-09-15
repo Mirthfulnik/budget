@@ -1171,3 +1171,19 @@ html.auth-locked, body.auth-locked{
   /* Кнопка уходит на свою строку во всю ширину */
   .rangeRow .rangeApply{ grid-column: 1 / -1; }
 }
+
+/* === Переключатель валюты на дашборде ==========================
+   Аналитика считается по одной валюте за раз, чипы выбирают какую.
+   Скрываются, когда валюта всего одна — лишний элемент ни к чему.
+*/
+.curTabs{ margin-top: 10px; flex-wrap: wrap; }
+.curTabs .tab{ display: inline-flex; align-items: center; gap: 6px; }
+.curTabs .curCount{
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: var(--muted);
+}
+.curTabs .tab.active .curCount{ background: rgba(255,255,255,.16); color: inherit; }
