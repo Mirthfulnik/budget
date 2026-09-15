@@ -279,6 +279,7 @@ const state = {
   stages: [],         // {id, name, amount} amount: monthly income threshold
   quotes: [],         // {id, text, author}
   currencies: [],     // {code, symbol, name} — справочник валют (настройки)
+  dashCur: "",        // валюта, в которой сейчас смотрим аналитику
   balanceByCurrency: null, // optional from server
   period: { kind:"week", from:null, to:null },
   // Фильтры операций (единственный источник истины — не DOM)
@@ -340,6 +341,7 @@ const state = {
  * добавит её обратно, даже если её удалили или бэкенд про неё не знает.
  */
 const CURRENCIES_LS_KEY = "finance2026_currencies_v1";
+const DASH_CUR_LS_KEY  = "finance2026_dash_currency";
 
 const DEFAULT_CURRENCIES = [
   { code:"RUB", symbol:"₽", name:"Российский рубль" },
@@ -482,6 +484,7 @@ function fillCurrencySelect(sel, preferred){
 // Справочник доступен сразу, ещё до первого bootstrap — форма не должна
 // оказаться с пустым списком валют, пока идёт запрос к сети.
 state.currencies = loadCurrenciesLocal_();
+try{ state.dashCur = normalizeCurrencyCode_(localStorage.getItem(DASH_CUR_LS_KEY) || ""); }catch(e){}
 
 /**
  * ============================
@@ -2124,6 +2127,13 @@ $("#period-tabs").addEventListener("click", (e)=>{
   setPeriod(kind);
 });
 
+$("#dash-cur-tabs")?.addEventListener("click", (e)=>{
+  const tab = e.target.closest(".tab");
+  if (!tab) return;
+  const code = tab.getAttribute("data-dash-cur");
+  if (code && code !== state.dashCur) setDashCur(code);
+});
+
 $("#btn-apply-range").addEventListener("click", ()=>{
   const f = $("#range-from").value;
   const t = $("#range-to").value;
@@ -2185,6 +2195,67 @@ function renderSummaryByCurrency(opsInPeriod){
   }
 }
 
+/**
+ * ============================
+ *  ВАЛЮТА ДАШБОРДА
+ * ============================
+ * Суммы в разных валютах не складываются: 100 $ и 100 ₽ — это не 200 чего-то.
+ * Поэтому вся аналитика считается в одной валюте за раз, а между валютами
+ * переключаемся чипами. Пересчёта по курсу здесь нет намеренно — см. комментарий
+ * к dashCurrencyStats().
+ */
+function dashMoney(v){
+  return ruMoney(v, state.dashCur || baseCurrency());
+}
+
+/** Сколько операций каждой валюты попало в период. */
+function dashCurrencyStats(ops){
+  const counts = {};
+  (ops || []).forEach(o=>{
+    const c = normalizeCurrencyCode_(opCurrency(o));
+    if (!c) return;
+    counts[c] = (counts[c] || 0) + 1;
+  });
+  return counts;
+}
+
+/** Выбирает валюту: сохранённую → базовую → самую populated → первую. */
+function resolveDashCur_(counts){
+  const available = Object.keys(counts);
+  if (!available.length) return state.dashCur || baseCurrency();
+  if (state.dashCur && available.includes(state.dashCur)) return state.dashCur;
+  const base = baseCurrency();
+  if (available.includes(base)) return base;
+  return available.sort((a,b)=> counts[b]-counts[a])[0];
+}
+
+function setDashCur(code){
+  state.dashCur = normalizeCurrencyCode_(code);
+  try{ localStorage.setItem(DASH_CUR_LS_KEY, state.dashCur); }catch(e){}
+  renderDashboard();
+}
+
+function renderDashCurTabs(counts){
+  const box = $("#dash-cur-tabs");
+  if (!box) return;
+
+  // Показываем валюты, по которым есть операции в периоде, плюс выбранную —
+  // иначе при пустом периоде чипы исчезнут и переключиться будет некуда.
+  const codes = sortCurrencyCodes_([...Object.keys(counts), state.dashCur].filter(Boolean));
+
+  if (codes.length <= 1){
+    box.innerHTML = "";
+    box.style.display = "none";
+    return;
+  }
+  box.style.display = "";
+  box.innerHTML = codes.map(c=>{
+    const n = counts[c] || 0;
+    const active = (c === state.dashCur) ? " active" : "";
+    return `<div class="tab${active}" data-dash-cur="${esc(c)}">${esc(c)} <span class="curCount">${n}</span></div>`;
+  }).join("");
+}
+
 function renderDashboard(){
   // init default period if not set
   if (!state.period.from || !state.period.to){
@@ -2195,9 +2266,18 @@ function renderDashboard(){
   const pretty = `${from.toLocaleDateString("ru-RU")} — ${to.toLocaleDateString("ru-RU")}`;
   $("#pill-period").textContent = pretty;
 
-  const curOps = opsInRange(from,to);
+  const curOpsAll = opsInRange(from,to);
   const prev = previousAnalogRange(from,to);
-  const prevOps = opsInRange(prev.from, prev.to);
+  const prevOpsAll = opsInRange(prev.from, prev.to);
+
+  // Выбираем валюту и оставляем только её операции: KPI, графики,
+  // ТОП категорий и подкатегории дальше работают уже с одной валютой.
+  const counts = dashCurrencyStats(curOpsAll);
+  state.dashCur = resolveDashCur_(counts);
+  renderDashCurTabs(counts);
+
+  const curOps  = curOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
+  const prevOps = prevOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
 
   const curIncome = sum(curOps.filter(o=>o.type==="income").map(o=>Number(o.amount||0)));
   const curExpense = sum(curOps.filter(o=>o.type==="expense").map(o=>Number(o.amount||0)));
@@ -2223,8 +2303,8 @@ function renderDashboard(){
     return `
       <div class="kpi">
         <div class="sub">${esc(k.label)} · <span class="delta ${cls}">${arrow} ${Math.round(deltaPct)}%</span></div>
-        <div class="val">${ruMoney(k.val)}</div>
-        <div class="sub">пред. период: ${ruMoney(k.prev)}</div>
+        <div class="val">${dashMoney(k.val)}</div>
+        <div class="sub">пред. период: ${dashMoney(k.prev)}</div>
       </div>
     `;
   }).join("");
@@ -2711,8 +2791,8 @@ function initChartInteractivityOnce(){
     if (!h){ hideTip(); return; }
     const title = `<div style="font-weight:900; margin-bottom:4px">${esc(h.label)}</div>`;
     const type = h.kind==="income" ? "Доход" : "Расход";
-    const line1 = `<div>${esc(type)}: <span style="font-weight:900">${ruMoney(h.value)}</span></div>`;
-    const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">Баланс: ${ruMoney(h.balance)}</div>`;
+    const line1 = `<div>${esc(type)}: <span style="font-weight:900">${dashMoney(h.value)}</span></div>`;
+    const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">Баланс: ${dashMoney(h.balance)}</div>`;
     showTip(title + line1 + line2, e.clientX, e.clientY, stickyMs);
   });
 
@@ -2722,7 +2802,7 @@ function initChartInteractivityOnce(){
     if (!s){ hideTip(); return; }
     const pct = Math.round(s.pct);
     const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
-      `<div>Расход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
+      `<div>Расход: <span style="font-weight:900">${dashMoney(s.val)}</span></div>` +
       `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от расходов</div>`;
     showTip(html, e.clientX, e.clientY, stickyMs);
   });
@@ -2733,7 +2813,7 @@ function initChartInteractivityOnce(){
     if (!s){ hideTip(); return; }
     const pct = Math.round(s.pct);
     const html = `<div style="font-weight:900; margin-bottom:4px">${esc(s.name)}</div>` +
-      `<div>Доход: <span style="font-weight:900">${ruMoney(s.val)}</span></div>` +
+      `<div>Доход: <span style="font-weight:900">${dashMoney(s.val)}</span></div>` +
       `<div style="color:rgba(255,255,255,.72); margin-top:3px">${pct}% от доходов</div>`;
     showTip(html, e.clientX, e.clientY, stickyMs);
   });
@@ -2751,7 +2831,7 @@ function initChartInteractivityOnce(){
       const pct = Number(item.dataset.pct||0);
       const isExpense = (item.dataset.kind==="expense");
       const head = `<div style="font-weight:900; margin-bottom:4px">${esc(name||"")}</div>`;
-      const line1 = `<div>${isExpense ? "Расход" : "Доход"}: <span style="font-weight:900">${ruMoney(val)}</span></div>`;
+      const line1 = `<div>${isExpense ? "Расход" : "Доход"}: <span style="font-weight:900">${dashMoney(val)}</span></div>`;
       const line2 = `<div style="color:rgba(255,255,255,.72); margin-top:3px">${Math.round(pct)}% от ${isExpense ? "расходов" : "доходов"}</div>`;
       showTip(head + line1 + line2, e.clientX, e.clientY, 2500);
     });
@@ -2800,9 +2880,9 @@ function renderBarDetails(idx){
   if (!box || !model || !model.buckets || !model.buckets[idx]) return;
   const b = model.buckets[idx];
   box.innerHTML = `
-    <div class="kpiItem"><div class="k">Доходы</div><div class="v">${ruMoney(b.income)}</div></div>
-    <div class="kpiItem"><div class="k">Расходы</div><div class="v">${ruMoney(b.expense)}</div></div>
-    <div class="kpiItem"><div class="k">Баланс</div><div class="v">${ruMoney(b.balance)}</div></div>
+    <div class="kpiItem"><div class="k">Доходы</div><div class="v">${dashMoney(b.income)}</div></div>
+    <div class="kpiItem"><div class="k">Расходы</div><div class="v">${dashMoney(b.expense)}</div></div>
+    <div class="kpiItem"><div class="k">Баланс</div><div class="v">${dashMoney(b.balance)}</div></div>
   `;
 }
 
@@ -2866,7 +2946,7 @@ function renderPieDetails(key){
   const pct = Math.round(e.pct);
   box.innerHTML = `
     <div class="kpiItem"><div class="k">Категория</div><div class="v">${esc(e.name)}</div></div>
-    <div class="kpiItem"><div class="k">${esc(title)}</div><div class="v">${ruMoney(e.val)}</div></div>
+    <div class="kpiItem"><div class="k">${esc(title)}</div><div class="v">${dashMoney(e.val)}</div></div>
     <div class="kpiItem"><div class="k">Доля</div><div class="v">${pct}%</div></div>
   `;
 }
@@ -2918,7 +2998,7 @@ ctx.fillRect(bx, y, bw, barH);
     // value
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,255,255,.70)";
-    ctx.fillText(ruMoney(rows[i].val), w - pad - 4, y + barH - 2);
+    ctx.fillText(dashMoney(rows[i].val), w - pad - 4, y + barH - 2);
   }
 }
 
@@ -2947,7 +3027,7 @@ function renderTopCategories(curOps){
     <div class="item">
       <div class="left">
         <div class="t">${i+1}. ${esc(x.name)}</div>
-        <div class="d">Сумма: ${ruMoney(x.val)}</div>
+        <div class="d">Сумма: ${dashMoney(x.val)}</div>
       </div>
       <div class="right"><span class="tag expense">расход</span></div>
     </div>
@@ -2957,7 +3037,7 @@ function renderTopCategories(curOps){
     <div class="item">
       <div class="left">
         <div class="t">${i+1}. ${esc(x.name)}</div>
-        <div class="d">Сумма: ${ruMoney(x.val)}</div>
+        <div class="d">Сумма: ${dashMoney(x.val)}</div>
       </div>
       <div class="right"><span class="tag income">доход</span></div>
     </div>
@@ -3020,7 +3100,7 @@ function renderSubcategoryDashboard(curOps){
           <div class="subrow">
             <div class="subrowTop">
               <div class="subrowName">${i+1}. ${esc(r.name)}</div>
-              <div class="subrowMeta">${ruMoney(r.val)} · ${pct}%</div>
+              <div class="subrowMeta">${dashMoney(r.val)} · ${pct}%</div>
             </div>
             <div class="subbar"><i style="width:${w}%"></i></div>
           </div>
