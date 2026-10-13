@@ -343,6 +343,7 @@ const state = {
 const CURRENCIES_LS_KEY = "finance2026_currencies_v1";
 const DASH_CUR_LS_KEY  = "finance2026_dash_currency";
 const DASH_SUM_LS_KEY  = "finance2026_dash_sum_gel"; // режим «Всё в ₾»
+const DASH_HIDDEN_ACC_LS_KEY = "finance2026_dash_hidden_accounts"; // счета, скрытые из аналитики
 
 const DEFAULT_CURRENCIES = [
   { code:"RUB", symbol:"₽", name:"Российский рубль" },
@@ -488,6 +489,8 @@ state.currencies = loadCurrenciesLocal_();
 try{ state.dashCur = normalizeCurrencyCode_(localStorage.getItem(DASH_CUR_LS_KEY) || ""); }catch(e){}
 state.dashSum = true; // по умолчанию — сводная аналитика в лари
 try{ const v = localStorage.getItem(DASH_SUM_LS_KEY); if (v !== null) state.dashSum = (v === "1"); }catch(e){}
+state.dashHiddenAcc = new Set();
+try{ const v = JSON.parse(localStorage.getItem(DASH_HIDDEN_ACC_LS_KEY) || "[]"); if (Array.isArray(v)) state.dashHiddenAcc = new Set(v.map(String)); }catch(e){}
 
 /**
  * ============================
@@ -699,7 +702,11 @@ function daysBetween(a,b){
 }
 function sum(arr){ return arr.reduce((s,x)=>s+Number(x||0),0); }
 
-function catById(id){ return state.categories.find(c=>String(c.id)===String(id)); }
+const XFER_CATS_ = {
+  "__xfer_in":  { id:"__xfer_in",  name:"Поступления со скрытых счетов", type:"income" },
+  "__xfer_out": { id:"__xfer_out", name:"Переводы на скрытые счета",     type:"expense" },
+};
+function catById(id){ return XFER_CATS_[String(id)] || state.categories.find(c=>String(c.id)===String(id)); }
 function subcatById(id){ return state.subcategories.find(sc=>String(sc.id)===String(id)); }
 function accCurrency(accId){
   const a = accById(accId);
@@ -2264,6 +2271,116 @@ function nbgRate(cur, iso){
   return best;
 }
 
+/**
+ * ============================
+ *  СЧЕТА В АНАЛИТИКЕ
+ * ============================
+ * Скрытые счета (настройка хранится в этом браузере) выпадают из дашборда:
+ *  - их доходы и расходы не учитываются;
+ *  - перевод между двумя видимыми счетами остаётся переводом;
+ *  - перевод со скрытого счёта на видимый становится доходом
+ *    «Поступления со скрытых счетов», обратный — расходом «Переводы на скрытые счета»
+ *    (например, вывод денег с бизнес-счёта на личную карту — это личный доход);
+ *  - остатки скрытых счетов не входят в капитал и «Структуру по валютам».
+ */
+const accHidden_ = (id)=> !!id && state.dashHiddenAcc.has(String(id));
+
+function applyAccFilter_(ops){
+  if (!state.dashHiddenAcc.size) return ops;
+  const out = [];
+  for (const o of ops){
+    if (o.type === "transfer"){
+      const fromId = o.fromAccountId || o.accountId;
+      const toId = o.toAccountId;
+      const hf = accHidden_(fromId), ht = accHidden_(toId);
+      if (hf && ht) continue;
+      if (!hf && !ht){ out.push(o); continue; }
+      if (hf){ // со скрытого на видимый → доход
+        out.push({ ...o, type:"income", accountId: toId, currency: accCurrency(toId),
+          amount: Number(o.amountTo ?? o.amount ?? 0), amountGel: o.amountToGel ?? null,
+          categoryId:"__xfer_in", subcategoryId:null, _virtual:true });
+      } else {  // с видимого на скрытый → расход
+        out.push({ ...o, type:"expense", accountId: fromId, currency: opCurrency(o),
+          amount: Number(o.amount || 0), categoryId:"__xfer_out", subcategoryId:null, _virtual:true });
+      }
+      continue;
+    }
+    if (accHidden_(o.accountId)) continue;
+    out.push(o);
+  }
+  return out;
+}
+
+function setDashHiddenAcc_(ids){
+  state.dashHiddenAcc = new Set((ids || []).map(String));
+  try{ localStorage.setItem(DASH_HIDDEN_ACC_LS_KEY, JSON.stringify([...state.dashHiddenAcc])); }catch(e){}
+  renderDashboard();
+}
+
+function updateDashAccBtn_(){
+  const btn = $("#btn-dash-accounts");
+  if (!btn) return;
+  // учитываем только существующие счета — удалённые из справочника не считаем
+  const ids = new Set(state.accounts.map(a=>String(a.id)));
+  const hidden = [...state.dashHiddenAcc].filter(id=>ids.has(id)).length;
+  const total = state.accounts.length;
+  btn.textContent = hidden ? `🏦 Счета: ${total - hidden} из ${total}` : "🏦 Счета: все";
+  btn.classList.toggle("active", hidden > 0);
+  btn.title = hidden
+    ? "Скрыты: " + state.accounts.filter(a=>accHidden_(a.id)).map(a=>a.name).join(", ")
+    : "Выбрать счета, которые учитываются в аналитике";
+}
+
+function openDashAccountsModal(){
+  const groups = {};
+  for (const a of state.accounts){
+    const cur = a.currency || baseCurrency();
+    (groups[cur] ||= []).push(a);
+  }
+  const curs = sortCurrencyCodes_(Object.keys(groups));
+  const html = `
+    <div class="muted" style="font-size:12px;margin-bottom:10px">Отметьте счета, которые учитываются в аналитике.
+      Переводы со скрытых счетов на видимые считаются доходом, обратные — расходом. Настройка запоминается на этом устройстве.</div>
+    <div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn secondary" type="button" id="da-all">Все</button>
+      <button class="btn secondary" type="button" id="da-none">Ни одного</button>
+    </div>
+    <div id="da-list" style="max-height:55vh;overflow:auto">
+      ${curs.map(cur=>`
+        <div style="margin:10px 0 6px;color:var(--muted);font-weight:900;font-size:12px;letter-spacing:.3px">${esc(cur)}
+          <a href="#" data-da-cur="${esc(cur)}" style="margin-left:8px;font-weight:600;color:inherit;text-decoration:underline">все / ни одного</a></div>
+        ${groups[cur].map(a=>`
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer">
+            <input type="checkbox" data-da-acc="${esc(a.id)}" data-da-c="${esc(cur)}" ${accHidden_(a.id) ? "" : "checked"} style="width:18px;height:18px;flex:0 0 auto" />
+            <span>${esc(a.name || "Счёт")}</span>
+          </label>`).join("")}
+      `).join("")}
+    </div>
+    <div class="row modalActions" style="margin-top:10px">
+      <button class="btn" type="button" id="da-apply">Применить</button>
+    </div>
+  `;
+  openModal("🏦 Счета в аналитике", html);
+  const boxes = ()=> [...document.querySelectorAll("#da-list input[data-da-acc]")];
+  $("#da-all").addEventListener("click", ()=> boxes().forEach(b=>b.checked = true));
+  $("#da-none").addEventListener("click", ()=> boxes().forEach(b=>b.checked = false));
+  document.querySelectorAll("#da-list a[data-da-cur]").forEach(link=>{
+    link.addEventListener("click", (e)=>{
+      e.preventDefault();
+      const cur = link.getAttribute("data-da-cur");
+      const bs = boxes().filter(b=>b.getAttribute("data-da-c")===cur);
+      const allOn = bs.every(b=>b.checked);
+      bs.forEach(b=>b.checked = !allOn);
+    });
+  });
+  $("#da-apply").addEventListener("click", ()=>{
+    const hidden = boxes().filter(b=>!b.checked).map(b=>b.getAttribute("data-da-acc"));
+    closeModal();
+    setDashHiddenAcc_(hidden);
+  });
+}
+$("#btn-dash-accounts")?.addEventListener("click", openDashAccountsModal);
+
 /** Операции периода в лари: amount := amountGel. Без курса — в отдельный список. */
 function toGelOps_(ops){
   const out = [], noRate = [];
@@ -2280,11 +2397,12 @@ function toGelOps_(ops){
 function balancesByCurrencyAt_(iso){
   const bal = {};
   const add = (accId, v)=>{
-    if (!accId) return;
+    if (!accId || accHidden_(accId)) return;
     const cur = rateCur_(accCurrency(accId));
     bal[cur] = (bal[cur] || 0) + v;
   };
   for (const a of state.accounts){
+    if (accHidden_(a.id)) continue;
     const start = Number(a.balance ?? a.startBalance ?? 0);
     if (start) add(a.id, start);
   }
@@ -2332,7 +2450,8 @@ function renderGelExtra_(from, to, gelCur, noRateOps){
   const transfers = state.operations.filter(o=>{
     const d = opIsoDate_(o);
     return o.type === "transfer" && d >= fromIso && d <= toIsoRaw
-      && o.amountGel != null && o.amountToGel != null;
+      && o.amountGel != null && o.amountToGel != null
+      && !accHidden_(o.fromAccountId || o.accountId) && !accHidden_(o.toAccountId);
   }).map(o=>({ o, loss: Number(o.amountGel) - Number(o.amountToGel) }))
     .filter(x=> Math.abs(x.loss) >= 0.01);
   const losses = transfers.reduce((s,x)=>s+x.loss, 0);
@@ -2470,9 +2589,10 @@ function renderDashboard(){
   const pretty = `${from.toLocaleDateString("ru-RU")} — ${to.toLocaleDateString("ru-RU")}`;
   $("#pill-period").textContent = pretty;
 
-  const curOpsAll = opsInRange(from,to);
+  updateDashAccBtn_();
+  const curOpsAll = applyAccFilter_(opsInRange(from,to));
   const prev = previousAnalogRange(from,to);
-  const prevOpsAll = opsInRange(prev.from, prev.to);
+  const prevOpsAll = applyAccFilter_(opsInRange(prev.from, prev.to));
 
   // Выбираем валюту и оставляем только её операции: KPI, графики,
   // ТОП категорий и подкатегории дальше работают уже с одной валютой.
@@ -3363,10 +3483,12 @@ function renderCurrencyStructure(){
   }
 
   // П7: суммарный положительный баланс всех счетов — для расчёта доли
-  const totalPositive = Object.values(balByAcc).reduce((s, v) => s + Math.max(0, v), 0);
+  const totalPositive = Object.entries(balByAcc).reduce((s, [id, v]) => s + (accHidden_(id) ? 0 : Math.max(0, v)), 0);
 
   const groups = {};
+  const hiddenNames = [];
   for (const a of state.accounts){
+    if (accHidden_(a.id)){ hiddenNames.push(a.name || "Счёт"); continue; }
     const cur = a.currency || baseCurrency();
     (groups[cur] ||= []).push({
       id: a.id,
@@ -3426,7 +3548,9 @@ function renderCurrencyStructure(){
     `;
   }).join("");
 
-  box.innerHTML = html || `<div class="muted">Нет данных.</div>`;
+  const hiddenNote = hiddenNames.length
+    ? `<div class="muted" style="font-size:12px;margin-top:8px">Скрыто из аналитики: ${esc(hiddenNames.join(", "))}</div>` : "";
+  box.innerHTML = (html || `<div class="muted">Нет данных.</div>`) + hiddenNote;
 }
 
 
