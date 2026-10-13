@@ -342,6 +342,7 @@ const state = {
  */
 const CURRENCIES_LS_KEY = "finance2026_currencies_v1";
 const DASH_CUR_LS_KEY  = "finance2026_dash_currency";
+const DASH_SUM_LS_KEY  = "finance2026_dash_sum_gel"; // режим «Всё в ₾»
 
 const DEFAULT_CURRENCIES = [
   { code:"RUB", symbol:"₽", name:"Российский рубль" },
@@ -485,6 +486,8 @@ function fillCurrencySelect(sel, preferred){
 // оказаться с пустым списком валют, пока идёт запрос к сети.
 state.currencies = loadCurrenciesLocal_();
 try{ state.dashCur = normalizeCurrencyCode_(localStorage.getItem(DASH_CUR_LS_KEY) || ""); }catch(e){}
+state.dashSum = true; // по умолчанию — сводная аналитика в лари
+try{ const v = localStorage.getItem(DASH_SUM_LS_KEY); if (v !== null) state.dashSum = (v === "1"); }catch(e){}
 
 /**
  * ============================
@@ -1017,7 +1020,9 @@ function applyBootstrapData(d, { silent = false } = {}) {
   state.categories    = Array.isArray(d.categories)    ? d.categories    : [];
   state.subcategories = Array.isArray(d.subcategories) ? d.subcategories : [];
   state.accounts      = Array.isArray(d.accounts)      ? d.accounts      : defaultAccounts();
-  state.fxRates       = Array.isArray(d.fxRates)       ? d.fxRates       : [];
+  state.fxRates       = Array.isArray(d.fxRates) ? d.fxRates : (Array.isArray(d.fx) ? d.fx : []);
+  state.fxGel         = Array.isArray(d.fxGel)         ? d.fxGel         : [];
+  state._nbgRows      = null; // сбрасываем кеш поиска курсов
 
   // Справочник валют: сервер (если научится отдавать) → localStorage → дефолт
   const fromServer = sanitizeCurrencies_(d.currencies);
@@ -2130,8 +2135,11 @@ $("#period-tabs").addEventListener("click", (e)=>{
 $("#dash-cur-tabs")?.addEventListener("click", (e)=>{
   const tab = e.target.closest(".tab");
   if (!tab) return;
+  if (tab.hasAttribute("data-dash-sum")){ setDashSum(true); return; }
   const code = tab.getAttribute("data-dash-cur");
-  if (code && code !== state.dashCur) setDashCur(code);
+  if (!code) return;
+  if (state.dashSum){ setDashSum(false, code); return; }
+  if (code !== state.dashCur) setDashCur(code);
 });
 
 $("#btn-apply-range").addEventListener("click", ()=>{
@@ -2205,7 +2213,205 @@ function renderSummaryByCurrency(opsInPeriod){
  * к dashCurrencyStats().
  */
 function dashMoney(v){
-  return ruMoney(v, state.dashCur || baseCurrency());
+  return ruMoney(v, state.dashSum ? "GEL" : (state.dashCur || baseCurrency()));
+}
+
+function setDashSum(on, code){
+  state.dashSum = !!on;
+  try{ localStorage.setItem(DASH_SUM_LS_KEY, state.dashSum ? "1" : "0"); }catch(e){}
+  if (code){
+    state.dashCur = normalizeCurrencyCode_(code);
+    try{ localStorage.setItem(DASH_CUR_LS_KEY, state.dashCur); }catch(e){}
+  }
+  renderDashboard();
+}
+
+/**
+ * ============================
+ *  ПЕРЕСЧЁТ В ЛАРИ
+ * ============================
+ * Сервер дописывает каждой операции amountGel (сумма в лари на дату операции:
+ * курс вашей конвертации, иначе курс НБГ), а переводам — ещё amountToGel.
+ * Здесь эти поля только читаются, плюс курсы НБГ (state.fxGel) нужны для
+ * оценки остатков на дату.
+ */
+const isoLocal_ = (d)=>{
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+};
+const opIsoDate_ = (o)=> String(o.date || o.createdAt || "").slice(0,10);
+const rateCur_ = (c)=>{ const x = normalizeCurrencyCode_(c); return (x==="USDT"||x==="USDC") ? "USD" : x; };
+
+/** Курс НБГ (лари за 1 единицу) на дату: точная → ближайшая раньше → позже, в пределах 10 дней. */
+function nbgRate(cur, iso){
+  const c = rateCur_(cur);
+  if (c === "GEL") return 1;
+  if (!state._nbgRows){
+    state._nbgRows = (state.fxGel || []).filter(r=>r && r.date && r.rates)
+      .sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  }
+  const rows = state._nbgRows;
+  let best = null, bestDist = Infinity;
+  const t = new Date(iso+"T00:00:00Z").getTime();
+  for (const r of rows){
+    const v = Number(r.rates[c]);
+    if (!(v > 0)) continue;
+    const dist = (new Date(r.date+"T00:00:00Z").getTime() - t) / 864e5;
+    // раньше даты — приоритет (dist ≤ 0), позже — только если раньше ничего нет
+    const score = dist <= 0 ? -dist : dist + 0.5;
+    if (Math.abs(dist) <= 10 && score < bestDist){ best = v; bestDist = score; }
+  }
+  return best;
+}
+
+/** Операции периода в лари: amount := amountGel. Без курса — в отдельный список. */
+function toGelOps_(ops){
+  const out = [], noRate = [];
+  for (const o of ops){
+    if (o.type !== "income" && o.type !== "expense") continue;
+    const g = Number(o.amountGel);
+    if (o.amountGel == null || !Number.isFinite(g)){ noRate.push(o); continue; }
+    out.push({ ...o, amount: g, currency: "GEL" });
+  }
+  return { ops: out, noRate };
+}
+
+/** Остатки по валютам на конец дня iso (как в «Структуре по валютам»). */
+function balancesByCurrencyAt_(iso){
+  const bal = {};
+  const add = (accId, v)=>{
+    if (!accId) return;
+    const cur = rateCur_(accCurrency(accId));
+    bal[cur] = (bal[cur] || 0) + v;
+  };
+  for (const a of state.accounts){
+    const start = Number(a.balance ?? a.startBalance ?? 0);
+    if (start) add(a.id, start);
+  }
+  for (const o of state.operations){
+    if (opIsoDate_(o) > iso) continue;
+    const amt = Number(o.amount || 0);
+    if (o.type === "income") add(o.accountId, amt);
+    else if (o.type === "expense") add(o.accountId, -amt);
+    else if (o.type === "transfer"){
+      add(o.fromAccountId || o.accountId, -amt);
+      add(o.toAccountId, Number(o.amountTo ?? o.amount ?? 0));
+    }
+  }
+  return bal;
+}
+
+/** Капитал в лари на дату по курсу НБГ этой даты. */
+function capitalGelAt_(iso){
+  const bal = balancesByCurrencyAt_(iso);
+  let gel = 0; const noRate = [];
+  for (const [cur, v] of Object.entries(bal)){
+    if (Math.abs(v) < 1e-9) continue;
+    const r = nbgRate(cur, iso);
+    if (r == null){ noRate.push(cur); continue; }
+    gel += v * r;
+  }
+  return { gel, noRate, usdRate: nbgRate("USD", iso) };
+}
+
+function renderGelExtra_(from, to, gelCur, noRateOps){
+  const box = $("#dash-gel-extra");
+  if (!box) return;
+  if (!state.dashSum){ box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "";
+
+  const today = isoLocal_(new Date());
+  const fromIso = isoLocal_(from);
+  const toIsoRaw = isoLocal_(to);
+  const endIso = toIsoRaw > today ? today : toIsoRaw;
+  const d0 = new Date(from); d0.setDate(d0.getDate()-1);
+  const startIso = isoLocal_(d0);
+  const g = (v)=> ruMoney(v, "GEL");
+
+  // потери на переводах и конвертациях (комиссии, курсовая разница)
+  const transfers = state.operations.filter(o=>{
+    const d = opIsoDate_(o);
+    return o.type === "transfer" && d >= fromIso && d <= toIsoRaw
+      && o.amountGel != null && o.amountToGel != null;
+  }).map(o=>({ o, loss: Number(o.amountGel) - Number(o.amountToGel) }))
+    .filter(x=> Math.abs(x.loss) >= 0.01);
+  const losses = transfers.reduce((s,x)=>s+x.loss, 0);
+  const topLoss = transfers.slice().sort((a,b)=>b.loss-a.loss).slice(0,5);
+
+  const income = gelCur.filter(o=>o.type==="income").reduce((s,o)=>s+o.amount,0);
+  const expense = gelCur.filter(o=>o.type==="expense").reduce((s,o)=>s+o.amount,0);
+
+  const c0 = capitalGelAt_(startIso);
+  const c1 = capitalGelAt_(endIso);
+  const capOk = !c0.noRate.length && !c1.noRate.length && (state.fxGel||[]).length;
+  const dCap = c1.gel - c0.gel;
+  const reval = dCap - (income - expense - losses);
+
+  const src = { fact:0, nbg:0, gel:0 };
+  gelCur.forEach(o=>{ if (src[o.gelRateSrc] != null) src[o.gelRateSrc]++; });
+
+  const lossRows = topLoss.map(({o, loss})=>{
+    const from_ = accById(o.fromAccountId || o.accountId)?.name || "—";
+    const to_ = accById(o.toAccountId)?.name || "—";
+    return `<div class="item" style="padding:8px 12px"><div class="left"><div class="t">${esc(new Date(opIsoDate_(o)+"T00:00:00").toLocaleDateString("ru-RU"))} · ${esc(from_)} → ${esc(to_)}</div>
+      <div class="d">${esc(ruMoney(Number(o.amount||0), opCurrency(o)))} → ${esc(ruMoney(Number(o.amountTo ?? o.amount ?? 0), accCurrency(o.toAccountId)))}${o.comment ? " · "+esc(o.comment) : ""}</div></div>
+      <div class="right"><div style="font-weight:900">${loss >= 0 ? "−" : "+"}${g(Math.abs(loss))}</div></div></div>`;
+  }).join("");
+
+  const warn = [];
+  if (!(state.fxGel||[]).length) warn.push("Курсы НБГ ещё не загружены — нажмите «Обновить курсы НБГ».");
+  if (noRateOps.length) warn.push(`${noRateOps.length} операций периода без курса — не учтены. Нажмите «Обновить курсы НБГ».`);
+  if ((c0.noRate.length || c1.noRate.length) && (state.fxGel||[]).length)
+    warn.push(`Нет курса НБГ для: ${esc([...new Set([...c0.noRate, ...c1.noRate])].join(", "))} — капитал посчитан без этих валют.`);
+
+  const kv = (k, v, sub="")=>`<div class="kpi"><div class="sub">${k}</div><div class="val">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+
+  box.innerHTML = `
+    <div class="hr"></div>
+    <div class="grid cols3">
+      ${kv("Потери на переводах и обмене", (losses >= 0 ? "−" : "+") + g(Math.abs(losses)), `${transfers.length} операций · комиссии и курсовая разница к НБГ`)}
+      ${kv("Капитал на " + new Date(endIso+"T00:00:00").toLocaleDateString("ru-RU"), capOk ? g(c1.gel) : "—",
+          capOk && c1.usdRate ? `≈ ${ruMoney(c1.gel / c1.usdRate, "USD")} · по курсу НБГ` : "по курсу НБГ")}
+      ${kv("Курсовая переоценка", capOk ? ((reval >= 0 ? "+" : "−") + g(Math.abs(reval))) : "—",
+          capOk ? `изменение капитала ${dCap >= 0 ? "+" : "−"}${g(Math.abs(dCap))} = доходы − расходы − потери ± переоценка` : "")}
+    </div>
+    <div class="row" style="margin-top:10px;gap:10px;align-items:center;flex-wrap:wrap">
+      <div class="muted" style="font-size:12px;flex:1 1 260px">Курс: ваш фактический обмен — ${src.fact} опер., НБГ — ${src.nbg}, в лари — ${src.gel}.
+        Переводы между своими счетами не считаются доходом или расходом.</div>
+      <button class="btn secondary" id="btn-fxgel-sync" type="button">Обновить курсы НБГ</button>
+    </div>
+    ${warn.length ? `<div class="muted" style="margin-top:8px;color:rgba(255,204,102,.95);font-size:12px">${warn.join("<br>")}</div>` : ""}
+    ${lossRows ? `<div class="sectionTitle" style="margin-top:12px">Крупнейшие потери на переводах</div><div class="list" style="gap:6px">${lossRows}</div>` : ""}
+  `;
+  $("#btn-fxgel-sync")?.addEventListener("click", syncGelRates_);
+}
+
+async function syncGelRates_(){
+  const btn = $("#btn-fxgel-sync");
+  if (btn){ btn.disabled = true; btn.textContent = "Загружаю курсы…"; }
+  try{
+    let total = 0, upd = 0;
+    for (let i = 0; i < 12; i++){
+      toast("Курсы НБГ", total ? `Загружено дат: ${total}…` : "Загружаю…", "info", 0);
+      const j = await apiPost("fxGelSync", {});
+      const d = j.data || {};
+      total += d.fetched || 0; upd += d.updatedOps || 0;
+      if (Array.isArray(d.fxGel)) { state.fxGel = d.fxGel; state._nbgRows = null; }
+      if (Array.isArray(d.operations)) state.operations = d.operations;
+      if (!d.remaining || !d.fetched) {
+        if (d.remaining && d.errors && d.errors.length) toast("Курсы НБГ", `Не удалось загрузить ${d.remaining} дат: ${d.errors[0]}`, "warn", 5000);
+        break;
+      }
+    }
+    cacheBootstrapInvalidate();
+    renderAll();
+    toast("Курсы НБГ", `Готово ✅ Новых дат: ${total}, пересчитано операций: ${upd}`, "ok", 3000);
+  }catch(err){
+    toast("Курсы НБГ", String(err.message || err), "error", 5000);
+  }finally{
+    const b = $("#btn-fxgel-sync");
+    if (b){ b.disabled = false; b.textContent = "Обновить курсы НБГ"; }
+  }
 }
 
 /** Сколько операций каждой валюты попало в период. */
@@ -2243,15 +2449,13 @@ function renderDashCurTabs(counts){
   // иначе при пустом периоде чипы исчезнут и переключиться будет некуда.
   const codes = sortCurrencyCodes_([...Object.keys(counts), state.dashCur].filter(Boolean));
 
-  if (codes.length <= 1){
-    box.innerHTML = "";
-    box.style.display = "none";
-    return;
-  }
+  // Чип «Σ ₾» — сводная аналитика по всем счетам в лари; дальше — по одной валюте
   box.style.display = "";
-  box.innerHTML = codes.map(c=>{
+  const total = Object.values(counts).reduce((s,n)=>s+n, 0);
+  const sumChip = `<div class="tab${state.dashSum ? " active" : ""}" data-dash-sum="1" title="Все счета, пересчёт в лари на дату операции">Σ Всё в ₾ <span class="curCount">${total}</span></div>`;
+  box.innerHTML = sumChip + codes.map(c=>{
     const n = counts[c] || 0;
-    const active = (c === state.dashCur) ? " active" : "";
+    const active = (!state.dashSum && c === state.dashCur) ? " active" : "";
     return `<div class="tab${active}" data-dash-cur="${esc(c)}">${esc(c)} <span class="curCount">${n}</span></div>`;
   }).join("");
 }
@@ -2276,8 +2480,15 @@ function renderDashboard(){
   state.dashCur = resolveDashCur_(counts);
   renderDashCurTabs(counts);
 
-  const curOps  = curOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
-  const prevOps = prevOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
+  let curOps, prevOps, noRateOps = [];
+  if (state.dashSum){
+    const c = toGelOps_(curOpsAll);
+    curOps = c.ops; noRateOps = c.noRate;
+    prevOps = toGelOps_(prevOpsAll).ops;
+  } else {
+    curOps  = curOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
+    prevOps = prevOpsAll.filter(o=>normalizeCurrencyCode_(opCurrency(o))===state.dashCur);
+  }
 
   const curIncome = sum(curOps.filter(o=>o.type==="income").map(o=>Number(o.amount||0)));
   const curExpense = sum(curOps.filter(o=>o.type==="expense").map(o=>Number(o.amount||0)));
@@ -2308,6 +2519,8 @@ function renderDashboard(){
       </div>
     `;
   }).join("");
+
+  renderGelExtra_(from, to, curOps, noRateOps);
 
   // charts
   drawBarChart($("#bar-chart"), from,to, curOps);
@@ -3208,7 +3421,7 @@ function renderCurrencyStructure(){
     }).join("");
 
     return `
-      <div style="margin:10px 0 6px;color:var(--muted);font-weight:900;font-size:12px;letter-spacing:.3px">${esc(cur)} · Итого: ${ruMoney(total, cur)}</div>
+      <div style="margin:10px 0 6px;color:var(--muted);font-weight:900;font-size:12px;letter-spacing:.3px">${esc(cur)} · Итого: ${ruMoney(total, cur)}${(()=>{ if (rateCur_(cur)==="GEL") return ""; const r = nbgRate(cur, isoLocal_(new Date())); return r ? ` · ≈ ${ruMoney(total*r, "GEL")}` : ""; })()}</div>
       <div class="list" style="gap:6px">${items || `<div class="muted">Нет счетов.</div>`}</div>
     `;
   }).join("");
